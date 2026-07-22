@@ -46,3 +46,8 @@ jobs:
 
       - name: Run tests
         run: poetry run pytest
+
+      - name: Audit dependencies (pip-audit)
+        run: |
+          poetry run pip install --upgrade pip pip-audit
+          poetry run pip-audit
