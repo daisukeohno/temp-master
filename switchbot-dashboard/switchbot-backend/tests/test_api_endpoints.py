@@ -268,15 +268,15 @@ class TestGetMeterHistoryEndpoint:
 
 
 class TestRefreshMetersEndpoint:
-    def test_refresh_meters_no_credentials(self, client):
+    def test_refresh_meters_no_credentials(self, client, api_key_configured, auth_headers):
         with patch.object(main_module, "SWITCHBOT_TOKEN", ""), \
              patch.object(main_module, "SWITCHBOT_SECRET", ""):
-            response = client.post("/api/meters/refresh")
+            response = client.post("/api/meters/refresh", headers=auth_headers)
             
             assert response.status_code == 500
             assert "credentials not configured" in response.json()["detail"].lower()
 
-    def test_refresh_meters_success(self, client, reset_data_store):
+    def test_refresh_meters_success(self, client, reset_data_store, api_key_configured, auth_headers):
         with patch.object(main_module, "SWITCHBOT_TOKEN", "test-token"), \
              patch.object(main_module, "SWITCHBOT_SECRET", "test-secret"), \
              patch("app.main.collect_data", new_callable=AsyncMock) as mock_collect:
@@ -287,7 +287,7 @@ class TestRefreshMetersEndpoint:
                 device_type="Meter",
             )
             
-            response = client.post("/api/meters/refresh")
+            response = client.post("/api/meters/refresh", headers=auth_headers)
             
             assert response.status_code == 200
             data = response.json()
@@ -350,7 +350,7 @@ class TestGetStatusEndpoint:
 
 
 class TestImportDataEndpoint:
-    async def test_import_data_creates_devices(self, client, reset_data_store, temp_db_path):
+    async def test_import_data_creates_devices(self, client, reset_data_store, temp_db_path, api_key_configured, auth_headers):
         original_db_path = main_module.DB_PATH
         main_module.DB_PATH = temp_db_path
         
@@ -372,7 +372,7 @@ class TestImportDataEndpoint:
                 ]
             }
             
-            response = client.post("/api/import", json=import_data)
+            response = client.post("/api/import", json=import_data, headers=auth_headers)
             
             assert response.status_code == 200
             data = response.json()
@@ -385,7 +385,7 @@ class TestImportDataEndpoint:
         finally:
             main_module.DB_PATH = original_db_path
 
-    async def test_import_data_creates_readings(self, client, reset_data_store, temp_db_path):
+    async def test_import_data_creates_readings(self, client, reset_data_store, temp_db_path, api_key_configured, auth_headers):
         original_db_path = main_module.DB_PATH
         main_module.DB_PATH = temp_db_path
         
@@ -416,7 +416,7 @@ class TestImportDataEndpoint:
                 ]
             }
             
-            response = client.post("/api/import", json=import_data)
+            response = client.post("/api/import", json=import_data, headers=auth_headers)
             
             assert response.status_code == 200
             data = response.json()
@@ -425,7 +425,7 @@ class TestImportDataEndpoint:
         finally:
             main_module.DB_PATH = original_db_path
 
-    async def test_import_data_multiple_devices(self, client, reset_data_store, temp_db_path):
+    async def test_import_data_multiple_devices(self, client, reset_data_store, temp_db_path, api_key_configured, auth_headers):
         original_db_path = main_module.DB_PATH
         main_module.DB_PATH = temp_db_path
         
@@ -449,7 +449,7 @@ class TestImportDataEndpoint:
                 ]
             }
             
-            response = client.post("/api/import", json=import_data)
+            response = client.post("/api/import", json=import_data, headers=auth_headers)
             
             assert response.status_code == 200
             data = response.json()
@@ -460,12 +460,60 @@ class TestImportDataEndpoint:
         finally:
             main_module.DB_PATH = original_db_path
 
-    def test_import_data_empty_devices(self, client, reset_data_store):
+    def test_import_data_empty_devices(self, client, reset_data_store, api_key_configured, auth_headers):
         import_data = {"devices": []}
         
-        response = client.post("/api/import", json=import_data)
+        response = client.post("/api/import", json=import_data, headers=auth_headers)
         
         assert response.status_code == 200
         data = response.json()
         assert data["imported_devices"] == 0
         assert data["imported_readings"] == 0
+
+
+class TestApiKeyAuthentication:
+    """保護対象エンドポイント(/api/backup, /api/import, /api/meters/refresh)の認証テスト。"""
+
+    PROTECTED_REQUESTS = [
+        ("get", "/api/backup", None),
+        ("post", "/api/import", {"devices": []}),
+        ("post", "/api/meters/refresh", None),
+    ]
+
+    @pytest.mark.parametrize("method,path,body", PROTECTED_REQUESTS)
+    def test_missing_api_key_returns_401(self, client, api_key_configured, method, path, body):
+        response = getattr(client, method)(path, json=body) if body is not None else getattr(client, method)(path)
+        assert response.status_code == 401
+
+    @pytest.mark.parametrize("method,path,body", PROTECTED_REQUESTS)
+    def test_wrong_api_key_returns_401(self, client, api_key_configured, method, path, body):
+        headers = {"X-API-Key": "wrong-key"}
+        response = (
+            getattr(client, method)(path, json=body, headers=headers)
+            if body is not None
+            else getattr(client, method)(path, headers=headers)
+        )
+        assert response.status_code == 401
+
+    @pytest.mark.parametrize("method,path,body", PROTECTED_REQUESTS)
+    def test_no_api_key_configured_returns_503(self, client, auth_headers, method, path, body):
+        # API_KEY をパッチしない = 未設定状態。
+        with patch.object(main_module, "API_KEY", ""):
+            response = (
+                getattr(client, method)(path, json=body, headers=auth_headers)
+                if body is not None
+                else getattr(client, method)(path, headers=auth_headers)
+            )
+        assert response.status_code == 503
+
+    def test_backup_valid_key_returns_200(self, client, reset_data_store, api_key_configured, auth_headers, tmp_path):
+        db_file = tmp_path / "backup-test.db"
+        db_file.write_bytes(b"SQLite format 3\x00")
+        with patch.object(main_module, "DB_PATH", str(db_file)):
+            response = client.get("/api/backup", headers=auth_headers)
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "application/x-sqlite3"
+
+    def test_backup_missing_key_returns_401(self, client, api_key_configured):
+        response = client.get("/api/backup")
+        assert response.status_code == 401

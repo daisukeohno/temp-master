@@ -151,6 +151,22 @@ def client(reset_data_store) -> TestClient:
     return TestClient(app)
 
 
+TEST_API_KEY = "test-api-key"
+
+
+@pytest.fixture
+def api_key_configured():
+    """保護対象エンドポイント用に API_KEY を設定する。"""
+    with patch("app.main.API_KEY", TEST_API_KEY):
+        yield TEST_API_KEY
+
+
+@pytest.fixture
+def auth_headers() -> dict:
+    """正しい API キーを含む認証ヘッダ。"""
+    return {"X-API-Key": TEST_API_KEY}
+
+
 @pytest.fixture
 def mock_switchbot_credentials():
     with patch("app.main.SWITCHBOT_TOKEN", "test-token"), \

@@ -192,6 +192,19 @@
 
     var REFRESH_INTERVAL = 30000;
     var currentTimeScale = 'day';
+
+    // 保護対象エンドポイント(/api/meters/refresh, /api/backup)は X-API-Key ヘッダで
+    // 認証が必要。キーは localStorage に保存し、未設定なら入力を促す。
+    function getApiKey(promptIfMissing) {
+      var key = localStorage.getItem('apiKey') || '';
+      if (!key && promptIfMissing) {
+        key = window.prompt('API キーを入力してください (X-API-Key)') || '';
+        if (key) {
+          localStorage.setItem('apiKey', key);
+        }
+      }
+      return key;
+    }
     var STALE_METER_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
     var metersData = [];
     var statusData = null;
@@ -316,6 +329,7 @@
       $.ajax({
         url: API_URL + '/api/meters/refresh',
         type: 'POST',
+        headers: { 'X-API-Key': getApiKey(true) },
         success: function(data) {
           if (callback) callback(null, data);
         },
@@ -659,7 +673,33 @@
       });
 
       $('#btn-backup').click(function() {
-        window.open(API_URL + '/api/backup', '_blank');
+        var apiKey = getApiKey(true);
+        if (!apiKey) {
+          showError('API キーが未入力のためバックアップできません');
+          return;
+        }
+        fetch(API_URL + '/api/backup', { headers: { 'X-API-Key': apiKey } })
+          .then(function(resp) {
+            if (!resp.ok) {
+              throw new Error('HTTP ' + resp.status);
+            }
+            var disposition = resp.headers.get('Content-Disposition') || '';
+            var match = disposition.match(/filename="?([^"]+)"?/);
+            var filename = match ? match[1] : 'switchbot_backup.db';
+            return resp.blob().then(function(blob) {
+              var url = window.URL.createObjectURL(blob);
+              var a = document.createElement('a');
+              a.href = url;
+              a.download = filename;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              window.URL.revokeObjectURL(url);
+            });
+          })
+          .catch(function(err) {
+            showError('Failed to download backup: ' + err.message);
+          });
       });
     });
   </script>
