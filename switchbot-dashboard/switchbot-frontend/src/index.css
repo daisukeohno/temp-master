@@ -1,0 +1,453 @@
+:root {
+  /* Light theme (default) */
+  --bg: #f5f5f5;
+  --surface: #ffffff;
+  --surface-alt: #f8f8f8;
+  --border: #dddddd;
+  --text: #333333;
+  --text-muted: #777777;
+  --accent: #337ab7;
+  --accent-hover: #286090;
+  --accent-text: #ffffff;
+  --temp: #d9534f;
+  --humidity: #5bc0de;
+  --battery: #5cb85c;
+  --danger: #d9534f;
+  --success: #5cb85c;
+  --warning-bg: #fcf8e3;
+  --warning-border: #f0ad4e;
+  --warning-text: #8a6d3b;
+  --info-bg: #d9edf7;
+  --info-border: #bce8f1;
+  --info-text: #31708f;
+  --tag-bg: #eeeeee;
+  --tag-text: #777777;
+  --navbar-bg: #ffffff;
+  --navbar-border: #e7e7e7;
+  --navbar-text: #333333;
+
+  --chart-line: #d9534f;
+  --chart-fill: rgba(217, 83, 79, 0.15);
+  --chart-grid: rgba(0, 0, 0, 0.08);
+  --chart-axis: #777777;
+}
+
+[data-theme="dark"] {
+  --bg: #1a1d21;
+  --surface: #24282e;
+  --surface-alt: #2c313a;
+  --border: #3a4049;
+  --text: #e6e6e6;
+  --text-muted: #9aa4b2;
+  --accent: #4aa3df;
+  --accent-hover: #6bb6e6;
+  --accent-text: #0d1117;
+  --temp: #ff6b6b;
+  --humidity: #4dd0e1;
+  --battery: #81c784;
+  --danger: #ff6b6b;
+  --success: #81c784;
+  --warning-bg: #3a3320;
+  --warning-border: #b3902f;
+  --warning-text: #f2c96b;
+  --info-bg: #1e3a44;
+  --info-border: #2b5563;
+  --info-text: #8fd4e8;
+  --tag-bg: #333a44;
+  --tag-text: #9aa4b2;
+  --navbar-bg: #24282e;
+  --navbar-border: #3a4049;
+  --navbar-text: #e6e6e6;
+
+  --chart-line: #ff6b6b;
+  --chart-fill: rgba(255, 107, 107, 0.18);
+  --chart-grid: rgba(255, 255, 255, 0.10);
+  --chart-axis: #9aa4b2;
+}
+
+[data-theme="solarized"] {
+  --bg: #fdf6e3;
+  --surface: #eee8d5;
+  --surface-alt: #e4ddc8;
+  --border: #d3cbb2;
+  --text: #073642;
+  --text-muted: #657b83;
+  --accent: #268bd2;
+  --accent-hover: #1e6fa8;
+  --accent-text: #fdf6e3;
+  --temp: #dc322f;
+  --humidity: #2aa198;
+  --battery: #859900;
+  --danger: #dc322f;
+  --success: #859900;
+  --warning-bg: #faf3d9;
+  --warning-border: #b58900;
+  --warning-text: #93710a;
+  --info-bg: #e3efe0;
+  --info-border: #93a1a1;
+  --info-text: #586e75;
+  --tag-bg: #ded7bf;
+  --tag-text: #657b83;
+  --navbar-bg: #eee8d5;
+  --navbar-border: #d3cbb2;
+  --navbar-text: #073642;
+
+  --chart-line: #cb4b16;
+  --chart-fill: rgba(203, 75, 22, 0.16);
+  --chart-grid: rgba(101, 123, 131, 0.20);
+  --chart-axis: #657b83;
+}
+
+[data-theme="high-contrast"] {
+  --bg: #000000;
+  --surface: #000000;
+  --surface-alt: #0d0d0d;
+  --border: #ffffff;
+  --text: #ffffff;
+  --text-muted: #e0e0e0;
+  --accent: #ffff00;
+  --accent-hover: #e6e600;
+  --accent-text: #000000;
+  --temp: #ff4136;
+  --humidity: #00d0ff;
+  --battery: #2ecc40;
+  --danger: #ff4136;
+  --success: #2ecc40;
+  --warning-bg: #1a1500;
+  --warning-border: #ffdc00;
+  --warning-text: #ffdc00;
+  --info-bg: #001a1f;
+  --info-border: #00d0ff;
+  --info-text: #00d0ff;
+  --tag-bg: #1a1a1a;
+  --tag-text: #ffffff;
+  --navbar-bg: #000000;
+  --navbar-border: #ffffff;
+  --navbar-text: #ffffff;
+
+  --chart-line: #ffff00;
+  --chart-fill: rgba(255, 255, 0, 0.15);
+  --chart-grid: rgba(255, 255, 255, 0.30);
+  --chart-axis: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.app {
+  padding-top: 70px;
+}
+
+/* Navbar */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 20px;
+  height: 50px;
+  background-color: var(--navbar-bg);
+  border-bottom: 1px solid var(--navbar-border);
+}
+
+.navbar__brand {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--navbar-text);
+}
+
+.navbar__right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.theme-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--navbar-text);
+  font-size: 13px;
+}
+
+.theme-switcher__select,
+.control-select {
+  background-color: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
+/* Connection status badge */
+.badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.badge--success {
+  background-color: var(--success);
+}
+
+.badge--danger {
+  background-color: var(--danger);
+}
+
+/* Layout container */
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 15px;
+}
+
+/* Panels */
+.panel {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.panel__heading {
+  padding: 10px 15px;
+  background-color: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+  border-radius: 4px 4px 0 0;
+}
+
+.panel__body {
+  padding: 15px;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  background-color: var(--surface);
+  color: var(--text);
+  transition: background-color 0.15s ease;
+}
+
+.btn:hover:not(:disabled) {
+  background-color: var(--surface-alt);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}
+
+/* Alerts */
+.alert {
+  padding: 12px 15px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.alert--info {
+  background-color: var(--info-bg);
+  border-color: var(--info-border);
+  color: var(--info-text);
+}
+
+.alert--warning {
+  background-color: var(--warning-bg);
+  border-color: var(--warning-border);
+  color: var(--warning-text);
+}
+
+.alert--danger {
+  background-color: var(--danger);
+  border-color: var(--danger);
+  color: #ffffff;
+}
+
+/* Meter grid */
+.meter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.meter-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.meter-panel__title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.device-type-tag {
+  font-size: 11px;
+  color: var(--tag-text);
+  background-color: var(--tag-bg);
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.meter-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.stat-label {
+  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.stat-label--temp {
+  background-color: var(--temp);
+}
+
+.stat-label--humidity {
+  background-color: var(--humidity);
+}
+
+.stat-label--battery {
+  background-color: var(--battery);
+}
+
+.meter-chart-wrap {
+  position: relative;
+  height: 200px;
+  width: 100%;
+}
+
+.meter-last-updated {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+
+/* Stale meters */
+.meter-section {
+  margin-bottom: 20px;
+}
+
+.meter-section__header {
+  margin-bottom: 10px;
+}
+
+.meter-section__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--warning-text);
+}
+
+.meter-section__subtitle {
+  margin: 4px 0 0;
+  color: var(--warning-text);
+  font-size: 12px;
+}
+
+.stale-meters-panel {
+  border-color: var(--warning-border);
+  background-color: var(--warning-bg);
+}
+
+.stale-meters-panel .panel__heading {
+  background-color: var(--warning-bg);
+  border-bottom-color: var(--warning-border);
+}
+
+.stale-meter-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  background-color: var(--warning-border);
+}
+
+.stale-meter-empty {
+  color: var(--warning-text);
+  margin: 0;
+}
+
+/* States */
+.loading,
+.empty {
+  text-align: center;
+  padding: 40px 0;
+  color: var(--text-muted);
+}
+
+footer {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  margin: 30px 0 20px 0;
+}

@@ -4,9 +4,14 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
 
 ## Features
 
+- React 18 + TypeScript SPA (built with Vite) with data fetching via TanStack Query
 - Temperature charts for all SwitchBot Meter devices using Recharts
-- Time scale switching (hour/day/month/year)
-- Auto-refresh every 30 seconds (frontend) with background data collection every 2 minutes (backend)
+- Time scale switching (hour/day/week/month/year)
+- Multiple color themes (Light / Dark / Solarized / High Contrast) with a navbar switcher,
+  `localStorage` persistence and `prefers-color-scheme` as the initial default
+- Stale meter detection: devices not updated for over 7 days are moved to a separate
+  "未更新のメーター" section and excluded from charts
+- Auto-refresh every 30 seconds (frontend) with background data collection (backend)
 - Rate limiting protection with exponential backoff
 - All API calls are cached - GET endpoints never call SwitchBot API directly
 
@@ -41,6 +46,8 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
 
 ### Frontend
 
+The frontend is a React 18 + TypeScript SPA built with Vite (`switchbot-frontend/`).
+
 1. Navigate to the frontend directory:
    ```bash
    cd switchbot-frontend
@@ -51,10 +58,12 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
    npm install
    ```
 
-3. Copy `.env.example` to `.env`:
+3. (Optional) Copy `.env.example` to `.env` to point the frontend at a backend:
    ```bash
    cp .env.example .env
    ```
+   `VITE_API_URL` defaults to an empty string (same origin). Set it to a full URL
+   (e.g. `https://temp-master.fly.dev`) to run the dev server against a remote backend.
 
 4. Start the development server:
    ```bash
@@ -62,6 +71,16 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
    ```
 
 5. Open http://localhost:5173 in your browser
+
+#### Building for production
+
+```bash
+npm run build
+```
+
+This type-checks and outputs a static bundle to `switchbot-frontend/dist/`. In the
+Docker image the build runs in a Node stage and `dist/` is copied into the backend's
+`static/` directory, which FastAPI serves at `/` with SPA fallback routing.
 
 ## API Endpoints
 
