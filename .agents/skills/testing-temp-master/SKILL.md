@@ -25,7 +25,19 @@ cd switchbot-dashboard/switchbot-backend
 poetry install --no-interaction
 ```
 
-### 2. Create .env file
+The project requires Python `^3.12`. If the machine only has 3.10 (`poetry run` fails with
+"Current Python version (3.10.x) is not allowed by the project"), provision 3.12 first:
+
+```bash
+uv python install 3.12
+poetry env use $(uv python find 3.12)
+poetry install --no-interaction
+```
+
+Start the server detached so it survives the shell call:
+`setsid nohup poetry run fastapi run app/main.py --host 0.0.0.0 --port 8000 > /tmp/server.log 2>&1 &`
+
+### 2. Create .env file (optional if you seed data instead)
 
 ```bash
 cd switchbot-dashboard/switchbot-backend
@@ -60,6 +72,26 @@ poetry run fastapi run app/main.py --host 0.0.0.0 --port 8000
 ```
 
 The frontend is served at `http://localhost:8000/` and the API docs at `http://localhost:8000/docs`.
+
+## Testing without SwitchBot credentials
+
+The whole UI (meter cards, charts, stale section, themes) can be exercised without real credentials by
+seeding the local SQLite DB through the unauthenticated `POST /api/import` endpoint
+(`{"devices":[{device_id, device_name, device_type, current_temperature, current_humidity, battery,
+last_updated, readings:[{timestamp, temperature, humidity, battery}]}]}`).
+
+Tips:
+- Use `device_name` values that exist in `src/lib/displayNames.ts` (e.g. `Bedroom Meter`, `外`, `ネズミ`)
+  so the Japanese display-name mapping is exercised.
+- Add one device with `last_updated` older than 7 days and one with no `last_updated` to populate the
+  「未更新のメーター」 section.
+- Spread readings over the last year (e.g. 5 min for the last 2h, 15 min for 48h, 3h for 30d, 12h for a
+  year) so all five time scales render data.
+- Devices are reloaded from `app.db` on startup, so seeded data survives a server restart.
+- Without credentials `POST /api/meters/refresh` returns 500; the UI still reloads and does not crash,
+  but it also shows no error (the banner is cleared by the following successful load).
+- The `Refreshing...` / disabled button state is too fast to capture; temporarily adding
+  `await asyncio.sleep(3)` at the top of `refresh_meters` makes it observable (revert afterwards).
 
 ## Key Test Points
 
