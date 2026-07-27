@@ -69,6 +69,34 @@ npm run dev
 
 The dev UI is served at `http://localhost:5173/`.
 
+### 6. Testing without SwitchBot credentials (no secrets available)
+
+If `SWITCHBOT_TOKEN` / `SWITCHBOT_SECRET` are not available (or the API is rate-limited/unreachable),
+the in-memory `data_store` stays empty and the UI shows "Monitoring 0 meters" with no cards.
+You can still exercise the whole UI by seeding data through the backend's own import endpoint:
+
+1. Put *dummy* values in `.env` (`SWITCHBOT_TOKEN=dummy...`). This makes `/api/status` report
+   `configured: true` and lets `POST /api/meters/refresh` return 200 — `collect_data()` swallows the
+   failing upstream call, so the refresh flow can be exercised without real credentials.
+2. Seed devices + history with `POST /api/import`:
+   ```json
+   {"devices":[{"device_id":"C1","device_name":"Living Room","device_type":"Meter",
+     "current_temperature":24.5,"current_humidity":50,"battery":88,
+     "last_updated":"<iso8601 utc now>",
+     "readings":[{"timestamp":"<iso>","temperature":24.1,"humidity":50,"battery":90}]}]}
+   ```
+   Readings are written to SQLite, so `/api/meters/{id}/history` works for all time scales.
+   Seed hourly points for ~30 days plus 5-minute points for the last 2 hours to make
+   hour / day / week / month scales visually distinct.
+3. To make a device appear in the 未更新のメーター section, import it with `last_updated`
+   older than 7 days and an empty `readings` list.
+4. Always state clearly in the test report that the data is imported test data, not live devices.
+
+**Observing the "Refreshing..." pending state:** `POST /api/meters/refresh` completes in <0.3 s when
+credentials are dummy, so the pending button label is not visible. Temporarily add
+`await asyncio.sleep(3)` at the top of `refresh_meters()` in `app/main.py`, verify, then revert
+(and note the temporary change in the report).
+
 ## Key Test Points
 
 ### Branding Verification
