@@ -1,0 +1,7 @@
+node_modules/
+# Vite build output is emitted into this directory (served as backend static root)
+/index.html
+/assets/
+/vite.svg
+*.local
+*.tsbuildinfo

@@ -1,4 +1,14 @@
-# Build and run backend (serves frontend static files)
+# Stage 1: build the Vite + React frontend
+FROM node:20-slim AS frontend
+WORKDIR /frontend
+
+COPY switchbot-frontend/package.json switchbot-frontend/package-lock.json ./
+RUN npm ci
+
+COPY switchbot-frontend/ ./
+RUN npm run build
+
+# Stage 2: build and run backend (serves frontend static files)
 FROM python:3.12-slim
 WORKDIR /app
 
@@ -14,8 +24,9 @@ RUN poetry config virtualenvs.create true && \
 # Copy backend application code
 COPY switchbot-backend/app/ ./app/
 
-# Copy frontend to root: served at /
-COPY switchbot-frontend/ ./static/
+# Copy only the frontend build output: served at /
+COPY --from=frontend /frontend/index.html ./static/index.html
+COPY --from=frontend /frontend/assets/ ./static/assets/
 
 EXPOSE 8000
 

@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root,
+  [data-theme='light'] {
+    --color-background: 245 245 245;
+    --color-surface: 255 255 255;
+    --color-surface-muted: 248 248 248;
+    --color-border: 221 221 221;
+    --color-foreground: 33 37 41;
+    --color-muted: 119 119 119;
+    --color-accent: 51 122 183;
+    --color-accent-foreground: 255 255 255;
+    --color-temperature: 217 83 79;
+    --color-humidity: 91 192 222;
+    --color-battery: 92 184 92;
+    --color-warning: 240 173 78;
+    --color-danger: 217 83 79;
+    --color-info: 91 192 222;
+  }
+
+  [data-theme='dark'] {
+    --color-background: 17 24 39;
+    --color-surface: 31 41 55;
+    --color-surface-muted: 24 33 47;
+    --color-border: 55 65 81;
+    --color-foreground: 229 231 235;
+    --color-muted: 156 163 175;
+    --color-accent: 96 165 250;
+    --color-accent-foreground: 17 24 39;
+    --color-temperature: 248 113 113;
+    --color-humidity: 56 189 248;
+    --color-battery: 74 222 128;
+    --color-warning: 251 191 36;
+    --color-danger: 248 113 113;
+    --color-info: 56 189 248;
+  }
+
+  [data-theme='high-contrast'] {
+    --color-background: 0 0 0;
+    --color-surface: 0 0 0;
+    --color-surface-muted: 20 20 20;
+    --color-border: 255 255 255;
+    --color-foreground: 255 255 255;
+    --color-muted: 224 224 224;
+    --color-accent: 255 235 59;
+    --color-accent-foreground: 0 0 0;
+    --color-temperature: 255 82 82;
+    --color-humidity: 0 229 255;
+    --color-battery: 118 255 3;
+    --color-warning: 255 214 0;
+    --color-danger: 255 82 82;
+    --color-info: 0 229 255;
+  }
+
+  html {
+    @apply bg-background;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family:
+      system-ui,
+      -apple-system,
+      'Segoe UI',
+      'Hiragino Kaku Gothic ProN',
+      'Noto Sans JP',
+      sans-serif;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-lg border border-border bg-surface shadow-sm;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded px-2 py-1 text-xs font-semibold;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-primary {
+    @apply border-accent bg-accent text-accent-foreground hover:opacity-90;
+  }
+
+  .btn-secondary {
+    @apply bg-surface text-foreground hover:bg-surface-muted;
+  }
+
+  .form-control {
+    @apply rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent;
+  }
+}

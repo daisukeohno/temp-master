@@ -1,0 +1,9 @@
+**/__pycache__/
+**/*.pyc
+**/.venv/
+**/node_modules/
+switchbot-frontend/index.html
+switchbot-frontend/assets/
+**/*.tsbuildinfo
+**/.env
+*.db
