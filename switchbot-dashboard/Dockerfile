@@ -1,5 +1,5 @@
 # ---- build stage: 依存関係のみを仮想環境に構築する ----
-FROM python:3.12-slim AS builder
+FROM python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -18,7 +18,7 @@ RUN poetry config virtualenvs.create true && \
     poetry install --only main --no-root --no-interaction --no-ansi
 
 # ---- runtime stage: poetry などのビルド用ツールを含めない ----
-FROM python:3.12-slim AS runtime
+FROM python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
