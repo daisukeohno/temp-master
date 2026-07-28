@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root,
+  [data-theme='light'] {
+    --color-bg: #f1f5f9;
+    --color-surface: #ffffff;
+    --color-surface-muted: #f8fafc;
+    --color-border: #e2e8f0;
+    --color-text: #0f172a;
+    --color-text-muted: #64748b;
+    --color-accent: #2563eb;
+    --color-accent-fg: #ffffff;
+    --color-danger: #dc2626;
+    --color-warning: #d97706;
+    --color-success: #16a34a;
+    --color-info: #0891b2;
+
+    --chart-line: #dc2626;
+    --chart-line-fill: rgba(220, 38, 38, 0.18);
+    --chart-grid: rgba(15, 23, 42, 0.08);
+    --chart-axis: #64748b;
+    --chart-tooltip-bg: #ffffff;
+    --chart-tooltip-text: #0f172a;
+  }
+
+  [data-theme='dark'] {
+    --color-bg: #0b1120;
+    --color-surface: #151d2e;
+    --color-surface-muted: #1e293b;
+    --color-border: #334155;
+    --color-text: #e2e8f0;
+    --color-text-muted: #94a3b8;
+    --color-accent: #6366f1;
+    --color-accent-fg: #ffffff;
+    --color-danger: #f87171;
+    --color-warning: #fbbf24;
+    --color-success: #4ade80;
+    --color-info: #38bdf8;
+
+    --chart-line: #fb923c;
+    --chart-line-fill: rgba(251, 146, 60, 0.22);
+    --chart-grid: rgba(226, 232, 240, 0.12);
+    --chart-axis: #94a3b8;
+    --chart-tooltip-bg: #1e293b;
+    --chart-tooltip-text: #e2e8f0;
+  }
+
+  [data-theme='ocean'] {
+    --color-bg: #062a3a;
+    --color-surface: #0b3c50;
+    --color-surface-muted: #10495f;
+    --color-border: #17607b;
+    --color-text: #e6f7fb;
+    --color-text-muted: #93c7d6;
+    --color-accent: #14b8a6;
+    --color-accent-fg: #032b30;
+    --color-danger: #fb7185;
+    --color-warning: #fcd34d;
+    --color-success: #34d399;
+    --color-info: #67e8f9;
+
+    --chart-line: #22d3ee;
+    --chart-line-fill: rgba(34, 211, 238, 0.22);
+    --chart-grid: rgba(230, 247, 251, 0.14);
+    --chart-axis: #93c7d6;
+    --chart-tooltip-bg: #0b3c50;
+    --chart-tooltip-text: #e6f7fb;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    @apply bg-bg text-text;
+    font-family:
+      'Inter',
+      system-ui,
+      -apple-system,
+      'Segoe UI',
+      'Helvetica Neue',
+      'Hiragino Sans',
+      'Noto Sans JP',
+      sans-serif;
+    transition:
+      background-color 200ms ease,
+      color 200ms ease;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-border bg-surface shadow-card;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-primary {
+    @apply border-transparent bg-accent text-accent-fg hover:opacity-90;
+  }
+
+  .btn-secondary {
+    @apply bg-surface-muted text-text hover:border-accent;
+  }
+
+  .field {
+    @apply rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent;
+  }
+}
