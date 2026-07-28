@@ -12,10 +12,22 @@
 # Configuration:
 #   Set SWITCHBOT_BACKEND_URL environment variable or edit the default below
 #   Set BACKUP_DIR environment variable to change the backup directory
+#   Set DASHBOARD_API_KEY (or SWITCHBOT_API_KEY) to authenticate against the
+#     protected /api/backup endpoint. This is REQUIRED.
 
 BACKEND_URL="${SWITCHBOT_BACKEND_URL:-https://temp-master.fly.dev}"
 BACKUP_DIR="${BACKUP_DIR:-$HOME/switchbot_backups}"
 DEFAULT_INTERVAL=3600  # 1 hour in seconds
+
+# API key used for the X-API-Key header. Accept either variable name.
+API_KEY="${DASHBOARD_API_KEY:-${SWITCHBOT_API_KEY:-}}"
+
+if [ -z "$API_KEY" ]; then
+    echo "Error: DASHBOARD_API_KEY (or SWITCHBOT_API_KEY) environment variable is not set." >&2
+    echo "The /api/backup endpoint now requires authentication. Set the key and retry, e.g.:" >&2
+    echo "  export DASHBOARD_API_KEY=your_api_key" >&2
+    exit 1
+fi
 
 LOOP_MODE=false
 INTERVAL=$DEFAULT_INTERVAL
@@ -61,7 +73,7 @@ backup_database() {
     
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting backup..."
     
-    local http_code=$(curl -s -w "%{http_code}" -o "$backup_file" "$BACKEND_URL/api/backup")
+    local http_code=$(curl -s -w "%{http_code}" -o "$backup_file" -H "X-API-Key: $API_KEY" "$BACKEND_URL/api/backup")
     
     if [ "$http_code" -eq 200 ]; then
         local file_size=$(ls -lh "$backup_file" | awk '{print $5}')

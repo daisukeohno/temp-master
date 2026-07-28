@@ -15,7 +15,7 @@ import httpx
 from dotenv import load_dotenv
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -29,11 +29,50 @@ SWITCHBOT_API_BASE = "https://api.switch-bot.com/v1.1"
 SWITCHBOT_TOKEN = os.getenv("SWITCHBOT_TOKEN", "")
 SWITCHBOT_SECRET = os.getenv("SWITCHBOT_SECRET", "")
 
+# API key required to access write / sensitive endpoints. When unset, the
+# protected endpoints fail closed (HTTP 503) rather than being left open.
+DASHBOARD_API_KEY = os.getenv("DASHBOARD_API_KEY", "")
+
+# Allowed CORS origins (comma-separated). Wildcard "*" combined with
+# credentials is intentionally not used for security reasons.
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("ALLOWED_ORIGINS", "https://temp-master.fly.dev").split(",")
+    if origin.strip()
+]
+
 DATA_COLLECTION_INTERVAL = 3600
 RATE_LIMIT_BACKOFF_BASE = 60
 MAX_BACKOFF = 600
 
 METER_DEVICE_TYPES = ["Meter", "MeterPlus", "WoIOSensor", "Meter Plus (JP)", "Meter Pro", "Meter Pro CO2", "Hub 2"]
+
+
+async def require_api_key(
+    x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
+    authorization: Optional[str] = Header(default=None),
+) -> None:
+    """Validate the request against DASHBOARD_API_KEY.
+
+    Fails closed: if no API key is configured, the endpoint is unavailable
+    (503) instead of being left unprotected. Accepts the key via the
+    ``X-API-Key`` header or an ``Authorization: Bearer <key>`` header. The key
+    value is never included in responses or logs.
+    """
+    if not DASHBOARD_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="Authentication is not configured. Set DASHBOARD_API_KEY to enable this endpoint.",
+        )
+
+    provided_key = x_api_key
+    if not provided_key and authorization:
+        scheme, _, token = authorization.partition(" ")
+        if scheme.lower() == "bearer" and token:
+            provided_key = token
+
+    if not provided_key or not hmac.compare_digest(provided_key, DASHBOARD_API_KEY):
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 
 class TimeScale(str, Enum):
@@ -588,9 +627,9 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -641,7 +680,7 @@ async def get_meter_history(device_id: str, time_scale: TimeScale = TimeScale.HO
     }
 
 
-@app.post("/api/meters/refresh")
+@app.post("/api/meters/refresh", dependencies=[Depends(require_api_key)])
 async def refresh_meters():
     if not SWITCHBOT_TOKEN or not SWITCHBOT_SECRET:
         raise HTTPException(status_code=500, detail="SwitchBot credentials not configured")
@@ -667,17 +706,30 @@ async def get_status():
     }
 
 
+def _parse_iso_datetime(value: Optional[str], field_name: str) -> Optional[datetime]:
+    """Parse an ISO 8601 datetime string, returning HTTP 400 on invalid input."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid {field_name}: expected ISO 8601 datetime format",
+        )
+
+
 @app.get("/api/latency-logs")
 async def get_latency_logs_endpoint(
     start_time: Optional[str] = None,
     end_time: Optional[str] = None,
     endpoint: Optional[str] = None,
     device_id: Optional[str] = None,
-    limit: int = 100,
+    limit: int = Query(default=100, ge=1, le=1000),
 ):
     """Get latency logs for API calls with optional filters."""
-    start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00')) if start_time else None
-    end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00')) if end_time else None
+    start_dt = _parse_iso_datetime(start_time, "start_time")
+    end_dt = _parse_iso_datetime(end_time, "end_time")
     
     logs = await get_latency_logs(
         start_time=start_dt,
@@ -699,8 +751,8 @@ async def get_latency_stats_endpoint(
     end_time: Optional[str] = None,
 ):
     """Get aggregated latency statistics."""
-    start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00')) if start_time else None
-    end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00')) if end_time else None
+    start_dt = _parse_iso_datetime(start_time, "start_time")
+    end_dt = _parse_iso_datetime(end_time, "end_time")
     
     stats = await get_latency_stats(start_time=start_dt, end_time=end_dt)
     return stats
@@ -729,7 +781,7 @@ class ImportData(BaseModel):
     devices: list[ImportDeviceData]
 
 
-@app.post("/api/import")
+@app.post("/api/import", dependencies=[Depends(require_api_key)])
 async def import_data(data: ImportData):
     """Import historical data from another backend instance."""
     imported_devices = 0
@@ -773,7 +825,7 @@ async def import_data(data: ImportData):
     }
 
 
-@app.get("/api/backup")
+@app.get("/api/backup", dependencies=[Depends(require_api_key)])
 async def backup_database():
     """Download the SQLite database file for backup purposes."""
     if not os.path.exists(DB_PATH):

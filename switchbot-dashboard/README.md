@@ -65,10 +65,41 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
 
 ## API Endpoints
 
+Public (read-only, no authentication):
+
 - `GET /api/meters` - Returns list of all meter devices with current temperature (from cache)
 - `GET /api/meters/{device_id}/history` - Returns temperature history with time_scale parameter
-- `POST /api/meters/refresh` - Triggers immediate data collection
 - `GET /api/status` - Returns backend status and configuration
+- `GET /api/latency-logs` / `GET /api/latency-stats` - API call latency logs and stats
+- `GET /healthz` - Health check
+
+Protected (require the `X-API-Key` header, or `Authorization: Bearer <key>`):
+
+- `POST /api/meters/refresh` - Triggers immediate data collection
+- `POST /api/import` - Imports devices and readings
+- `GET /api/backup` - Downloads the SQLite database file
+
+## Security / Environment Variables
+
+- `DASHBOARD_API_KEY` (**required for the protected endpoints**): API key that
+  guards `/api/backup`, `/api/import`, and `/api/meters/refresh`. These
+  endpoints **fail closed**: if `DASHBOARD_API_KEY` is not set, they return
+  HTTP 503 instead of being exposed. Callers authenticate with the
+  `X-API-Key: <key>` header (or `Authorization: Bearer <key>`).
+- `ALLOWED_ORIGINS` (optional, default `https://temp-master.fly.dev`):
+  comma-separated list of origins allowed by CORS. The previous
+  wildcard-with-credentials configuration has been removed.
+
+On Fly.io, set these as secrets:
+
+```bash
+flyctl secrets set DASHBOARD_API_KEY="$(openssl rand -hex 32)"
+flyctl secrets set ALLOWED_ORIGINS="https://temp-master.fly.dev"
+```
+
+The `backup_database.sh` script reads `DASHBOARD_API_KEY` (or
+`SWITCHBOT_API_KEY`) and sends it as the `X-API-Key` header; it exits with an
+error if the variable is not set.
 
 ## Notes
 
