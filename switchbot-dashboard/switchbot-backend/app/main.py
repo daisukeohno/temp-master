@@ -2,6 +2,7 @@ import asyncio
 import base64
 import hashlib
 import hmac
+import logging
 import os
 import time
 import uuid
@@ -15,12 +16,31 @@ import httpx
 from dotenv import load_dotenv
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+UPSTREAM_ERROR_DETAIL = "上流API呼び出しに失敗しました"
+
+MAX_IMPORT_DEVICES = 1000
+MAX_IMPORT_READINGS = 100000
+
+
+def get_allowed_origins() -> list[str]:
+    """Read allowed CORS origins from the ALLOWED_ORIGINS env var (comma separated)."""
+    raw = os.getenv("ALLOWED_ORIGINS", "")
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
+def cors_allow_credentials(origins: list[str]) -> bool:
+    """Credentials must never be allowed together with a wildcard origin."""
+    return "*" not in origins
+
 
 # Database path - use /data/app.db for persistent volume in production
 DB_PATH = os.getenv("DB_PATH", "/data/app.db" if os.path.exists("/data") else "app.db")
@@ -433,9 +453,15 @@ async def call_switchbot_api(endpoint: str, device_id: Optional[str] = None) -> 
                     device_id=device_id,
                     error_message=f"SwitchBot API error: {response.text}",
                 )
+                logger.error(
+                    "SwitchBot API error: endpoint=%s status_code=%s body=%s",
+                    endpoint,
+                    response.status_code,
+                    response.text,
+                )
                 raise HTTPException(
                     status_code=response.status_code,
-                    detail=f"SwitchBot API error: {response.text}",
+                    detail=UPSTREAM_ERROR_DETAIL,
                 )
             
             await save_latency_log(
@@ -459,17 +485,16 @@ async def call_switchbot_api(endpoint: str, device_id: Optional[str] = None) -> 
                 device_id=device_id,
                 error_message=f"Request error: {str(e)}",
             )
-            raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
+            logger.error("SwitchBot API request error: endpoint=%s error=%s", endpoint, str(e))
+            raise HTTPException(status_code=500, detail=UPSTREAM_ERROR_DETAIL)
 
 
 async def fetch_devices() -> list[MeterDevice]:
     response = await call_switchbot_api("/devices")
     
     if response.get("statusCode") != 100:
-        raise HTTPException(
-            status_code=500,
-            detail=f"SwitchBot API returned error: {response.get('message', 'Unknown error')}",
-        )
+        logger.error("SwitchBot API returned error: %s", response.get("message", "Unknown error"))
+        raise HTTPException(status_code=500, detail=UPSTREAM_ERROR_DETAIL)
     
     devices = []
     device_list = response.get("body", {}).get("deviceList", [])
@@ -492,10 +517,8 @@ async def fetch_device_status(device_id: str) -> dict:
     response = await call_switchbot_api(f"/devices/{device_id}/status", device_id=device_id)
     
     if response.get("statusCode") != 100:
-        raise HTTPException(
-            status_code=500,
-            detail=f"SwitchBot API returned error: {response.get('message', 'Unknown error')}",
-        )
+        logger.error("SwitchBot API returned error: %s", response.get("message", "Unknown error"))
+        raise HTTPException(status_code=500, detail=UPSTREAM_ERROR_DETAIL)
     
     return response.get("body", {})
 
@@ -586,12 +609,16 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+ALLOWED_ORIGINS = get_allowed_origins()
+
+ALLOW_CREDENTIALS = cors_allow_credentials(ALLOWED_ORIGINS)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=ALLOW_CREDENTIALS,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
@@ -667,17 +694,38 @@ async def get_status():
     }
 
 
+def parse_iso_datetime(value: Optional[str], field_name: str) -> Optional[datetime]:
+    """Parse an ISO 8601 datetime string, returning 400 for invalid input."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{field_name} の形式が不正です。ISO 8601 形式で指定してください",
+        )
+
+
+def mask_latency_log(log: LatencyLog) -> dict:
+    """Serialize a latency log without exposing upstream error details."""
+    data = log.model_dump()
+    if data.get("error_message"):
+        data["error_message"] = "error"
+    return data
+
+
 @app.get("/api/latency-logs")
 async def get_latency_logs_endpoint(
     start_time: Optional[str] = None,
     end_time: Optional[str] = None,
     endpoint: Optional[str] = None,
     device_id: Optional[str] = None,
-    limit: int = 100,
+    limit: int = Query(100, ge=1, le=1000),
 ):
     """Get latency logs for API calls with optional filters."""
-    start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00')) if start_time else None
-    end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00')) if end_time else None
+    start_dt = parse_iso_datetime(start_time, "start_time")
+    end_dt = parse_iso_datetime(end_time, "end_time")
     
     logs = await get_latency_logs(
         start_time=start_dt,
@@ -688,7 +736,7 @@ async def get_latency_logs_endpoint(
     )
     
     return {
-        "logs": [log.model_dump() for log in logs],
+        "logs": [mask_latency_log(log) for log in logs],
         "count": len(logs),
     }
 
@@ -699,8 +747,8 @@ async def get_latency_stats_endpoint(
     end_time: Optional[str] = None,
 ):
     """Get aggregated latency statistics."""
-    start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00')) if start_time else None
-    end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00')) if end_time else None
+    start_dt = parse_iso_datetime(start_time, "start_time")
+    end_dt = parse_iso_datetime(end_time, "end_time")
     
     stats = await get_latency_stats(start_time=start_dt, end_time=end_dt)
     return stats
@@ -732,6 +780,18 @@ class ImportData(BaseModel):
 @app.post("/api/import")
 async def import_data(data: ImportData):
     """Import historical data from another backend instance."""
+    if len(data.devices) > MAX_IMPORT_DEVICES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"デバイス数が上限（{MAX_IMPORT_DEVICES}）を超えています",
+        )
+    total_readings = sum(len(device.readings) for device in data.devices)
+    if total_readings > MAX_IMPORT_READINGS:
+        raise HTTPException(
+            status_code=413,
+            detail=f"読み取り件数が上限（{MAX_IMPORT_READINGS}）を超えています",
+        )
+    
     imported_devices = 0
     imported_readings = 0
     
@@ -745,7 +805,7 @@ async def import_data(data: ImportData):
             current_temperature=device_data.current_temperature,
             current_humidity=device_data.current_humidity,
             battery=device_data.battery,
-            last_updated=datetime.fromisoformat(device_data.last_updated.replace('Z', '+00:00')) if device_data.last_updated else None,
+            last_updated=parse_iso_datetime(device_data.last_updated, "last_updated"),
         )
         
         data_store.devices[device.device_id] = device
@@ -757,8 +817,11 @@ async def import_data(data: ImportData):
         
         # Import readings
         for reading_data in device_data.readings:
+            timestamp = parse_iso_datetime(reading_data.timestamp, "timestamp")
+            if timestamp is None:
+                raise HTTPException(status_code=400, detail="timestamp は必須です")
             reading = MeterReading(
-                timestamp=datetime.fromisoformat(reading_data.timestamp.replace('Z', '+00:00')),
+                timestamp=timestamp,
                 temperature=reading_data.temperature,
                 humidity=reading_data.humidity,
                 battery=reading_data.battery,
