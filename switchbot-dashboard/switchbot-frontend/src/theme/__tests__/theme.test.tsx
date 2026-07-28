@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ThemeSwitcher } from '../../components/ThemeSwitcher';
 import { ThemeProvider } from '../ThemeProvider';
+import { useTheme } from '../useTheme';
 import { DEFAULT_THEME, THEME_STORAGE_KEY, readStoredTheme } from '../themes';
 
 function renderSwitcher() {
@@ -44,5 +45,25 @@ describe('theme switching', () => {
 
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
+  });
+
+  // Regression: consumers that read CSS variables during render (chart colors)
+  // must observe the new data-theme in the same commit as the theme state.
+  it('applies data-theme before consumers re-render', async () => {
+    function ThemeProbe() {
+      const { theme } = useTheme();
+      const applied = document.documentElement.getAttribute('data-theme');
+      return <span data-testid="probe">{`${theme}:${applied}`}</span>;
+    }
+
+    render(
+      <ThemeProvider>
+        <ThemeSwitcher />
+        <ThemeProbe />
+      </ThemeProvider>,
+    );
+    await userEvent.selectOptions(screen.getByLabelText('Theme'), 'ocean');
+
+    expect(screen.getByTestId('probe')).toHaveTextContent('ocean:ocean');
   });
 });

@@ -57,6 +57,34 @@ cd switchbot-dashboard/switchbot-frontend
 npm run dev   # http://localhost:5173
 ```
 
+**If Poetry refuses to install** with `Current Python version (3.10.x) is not allowed by the project (^3.12)`,
+the box has no Python 3.12. Bootstrap one with `uv` instead of Poetry:
+
+```bash
+cd switchbot-dashboard/switchbot-backend
+uv python install 3.12
+uv venv --python 3.12 .venv312
+uv pip install --python .venv312/bin/python "fastapi[standard]==0.127.0" httpx python-dotenv aiosqlite pytest pytest-asyncio
+.venv312/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+### 3b. Testing without SwitchBot credentials
+
+The UI can be fully exercised without real credentials:
+
+- `GET /api/meters` and `/api/meters/{id}/history` read from the local SQLite `app.db`
+  (loaded into memory on startup by `load_devices_from_db()`), so seeding `app.db` directly with
+  `devices` + `readings` rows is enough to render cards and charts.
+- The `Connected` badge only depends on `/api/meters` and `/api/status` succeeding — it does NOT
+  depend on `configured`.
+- `POST /api/meters/refresh` returns 500 when the token/secret are empty, which shows an error
+  banner. Put **dummy** values in `.env` instead: `collect_data()` swallows all API failures, so
+  refresh returns 200, existing DB devices are preserved, and the button state transition can be
+  verified. Real API collection remains untested in this mode — say so in the report.
+- Seed at least one device whose `last_updated` is 7+ days old to exercise the
+  「未更新のメーター」 section, and readings at several densities (minutes / hours / days) so the
+  Time Range selector produces visibly different charts.
+
 ### 4. Start the server
 
 ```bash

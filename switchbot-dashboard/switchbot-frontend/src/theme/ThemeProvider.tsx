@@ -1,17 +1,20 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { ThemeContext } from './ThemeContext';
 import { applyTheme, readStoredTheme, storeTheme, type ThemeName } from './themes';
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeName>(() => readStoredTheme());
+  const [theme, setThemeState] = useState<ThemeName>(() => {
+    const initial = readStoredTheme();
+    applyTheme(initial);
+    return initial;
+  });
 
-  useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
-
+  // data-theme is applied before the state update so that consumers reading
+  // CSS variables (chart colors) observe the new theme on their first render.
   const setTheme = useCallback((next: ThemeName) => {
-    setThemeState(next);
+    applyTheme(next);
     storeTheme(next);
+    setThemeState(next);
   }, []);
 
   const value = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);

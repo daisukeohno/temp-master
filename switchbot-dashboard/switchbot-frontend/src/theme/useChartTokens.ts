@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { useTheme } from './useTheme';
 
 export interface ChartTokens {
@@ -24,22 +24,24 @@ function readVar(styles: CSSStyleDeclaration, name: string, fallback: string): s
   return value || fallback;
 }
 
-/** Reads Recharts colors from the active theme's CSS variables. */
+/**
+ * Reads Recharts colors from the active theme's CSS variables. Resolved during
+ * render (not in an effect) so charts paint with the newly selected theme in the
+ * same commit as the rest of the UI.
+ */
 export function useChartTokens(): ChartTokens {
   const { theme } = useTheme();
-  const [tokens, setTokens] = useState<ChartTokens>(FALLBACK);
 
-  useEffect(() => {
+  return useMemo<ChartTokens>(() => {
+    void theme; // cache key: the variables below resolve differently per data-theme
     const styles = getComputedStyle(document.documentElement);
-    setTokens({
+    return {
       line: readVar(styles, '--chart-line', FALLBACK.line),
       lineFill: readVar(styles, '--chart-line-fill', FALLBACK.lineFill),
       grid: readVar(styles, '--chart-grid', FALLBACK.grid),
       axis: readVar(styles, '--chart-axis', FALLBACK.axis),
       tooltipBg: readVar(styles, '--chart-tooltip-bg', FALLBACK.tooltipBg),
       tooltipText: readVar(styles, '--chart-tooltip-text', FALLBACK.tooltipText),
-    });
+    };
   }, [theme]);
-
-  return tokens;
 }
