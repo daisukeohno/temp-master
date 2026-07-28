@@ -4,10 +4,15 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' data: https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self' https://temp-master.fly.dev; object-src 'none'; base-uri 'self'; form-action 'self'">
   <title>Temp Master Dashboard</title>
 
-  <!-- Bootstrap 3.3.7 CSS -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css">
+  <!-- Bootstrap 3.4.1 CSS -->
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/css/bootstrap.min.css"
+        integrity="sha512-Dop/vW3iOtayerlYAqCgkVr2aTr2ErwwTYOvRFUpzl2VhCMJyjQF0Q9TjUXIo6JhuM/3i0vVEt2e/7QQmnHQqw=="
+        crossorigin="anonymous"
+        referrerpolicy="no-referrer">
 
   <style>
     body {
@@ -172,14 +177,23 @@
 
   </div>
 
-  <!-- jQuery 1.12.x -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+  <!-- jQuery 3.7.1 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
+          integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+          crossorigin="anonymous"
+          referrerpolicy="no-referrer"></script>
 
-  <!-- Bootstrap 3.3.7 JS -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
+  <!-- Bootstrap 3.4.1 JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/js/bootstrap.min.js"
+          integrity="sha512-oBTprMeNEKCnqfuqKd6sbvFzmFQtlXS3e0C/RGFV0hD6QzhHV+ODfaQbAlmY6/q0ubbwlAM/nCJjkrgA3waLzg=="
+          crossorigin="anonymous"
+          referrerpolicy="no-referrer"></script>
 
-  <!-- Chart.js 2.9.x -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.js"></script>
+  <!-- Chart.js 2.9.4 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.js"
+          integrity="sha512-d9xgZrVZpmmQlfonhQUvTR7lMPtO7NkZMkA0ABN3PHCbKA5nqylQ/yWlFAyY6hYgdF1Qh6nYiuADWwKB4C2WSw=="
+          crossorigin="anonymous"
+          referrerpolicy="no-referrer"></script>
 
   <script>
     // ============================================================
@@ -640,13 +654,13 @@
       fetchData();
       setInterval(fetchData, REFRESH_INTERVAL);
 
-      $('#time-scale-select').change(function() {
+      $('#time-scale-select').on('change', function() {
         currentTimeScale = $(this).val();
         destroyAllCharts();
         renderCharts();
       });
 
-      $('#btn-refresh').click(function() {
+      $('#btn-refresh').on('click', function() {
         var $btn = $(this);
         $btn.prop('disabled', true).text('Refreshing...');
         triggerRefresh(function(err) {
@@ -658,7 +672,7 @@
         });
       });
 
-      $('#btn-backup').click(function() {
+      $('#btn-backup').on('click', function() {
         window.open(API_URL + '/api/backup', '_blank');
       });
     });
