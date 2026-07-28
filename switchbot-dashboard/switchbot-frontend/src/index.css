@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: 245 245 245;
+  --color-surface: 255 255 255;
+  --color-surface-alt: 248 248 248;
+  --color-border: 221 221 221;
+  --color-text: 34 34 34;
+  --color-muted: 119 119 119;
+  --color-accent: 51 122 183;
+  --color-accent-contrast: 255 255 255;
+  --color-temp: 217 83 79;
+  --color-humidity: 91 192 222;
+  --color-battery: 92 184 92;
+  --color-warn: 240 173 78;
+  --color-danger: 217 83 79;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  @apply bg-app text-content;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+@layer components {
+  .card {
+    @apply rounded-lg border border-border bg-surface shadow-sm;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold;
+  }
+
+  .btn {
+    @apply rounded border border-border px-3 py-1.5 text-sm font-medium transition-colors
+      disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-primary {
+    @apply border-accent bg-accent text-accent-contrast hover:opacity-90;
+  }
+
+  .btn-secondary {
+    @apply bg-surface-alt text-content hover:bg-surface;
+  }
+
+  .field {
+    @apply rounded border border-border bg-surface px-2 py-1.5 text-sm text-content;
+  }
+}
