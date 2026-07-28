@@ -1,4 +1,14 @@
-# Build and run backend (serves frontend static files)
+# Stage 1: build the React SPA
+FROM node:20-slim AS frontend-build
+WORKDIR /frontend
+
+COPY switchbot-frontend/package.json switchbot-frontend/package-lock.json ./
+RUN npm ci
+
+COPY switchbot-frontend/ ./
+RUN npm run build
+
+# Stage 2: run backend (serves the built frontend static files)
 FROM python:3.12-slim
 WORKDIR /app
 
@@ -14,8 +24,8 @@ RUN poetry config virtualenvs.create true && \
 # Copy backend application code
 COPY switchbot-backend/app/ ./app/
 
-# Copy frontend to root: served at /
-COPY switchbot-frontend/ ./static/
+# Copy built frontend (hashed assets under static/assets/): served at /
+COPY --from=frontend-build /frontend/dist/ ./static/
 
 EXPOSE 8000
 
