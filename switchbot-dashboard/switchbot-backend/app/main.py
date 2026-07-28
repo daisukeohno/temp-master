@@ -805,7 +805,7 @@ async def import_data(data: ImportData):
             current_temperature=device_data.current_temperature,
             current_humidity=device_data.current_humidity,
             battery=device_data.battery,
-            last_updated=datetime.fromisoformat(device_data.last_updated.replace('Z', '+00:00')) if device_data.last_updated else None,
+            last_updated=parse_iso_datetime(device_data.last_updated, "last_updated"),
         )
         
         data_store.devices[device.device_id] = device
@@ -817,8 +817,11 @@ async def import_data(data: ImportData):
         
         # Import readings
         for reading_data in device_data.readings:
+            timestamp = parse_iso_datetime(reading_data.timestamp, "timestamp")
+            if timestamp is None:
+                raise HTTPException(status_code=400, detail="timestamp は必須です")
             reading = MeterReading(
-                timestamp=datetime.fromisoformat(reading_data.timestamp.replace('Z', '+00:00')),
+                timestamp=timestamp,
                 temperature=reading_data.temperature,
                 humidity=reading_data.humidity,
                 battery=reading_data.battery,

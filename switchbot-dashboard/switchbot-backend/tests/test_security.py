@@ -110,6 +110,59 @@ class TestImportLimits:
 
         assert response.status_code in (413, 422)
 
+    def test_invalid_last_updated_returns_400(self, client):
+        import_data = {
+            "devices": [
+                {
+                    "device_id": "device-001",
+                    "device_name": "Meter",
+                    "device_type": "Meter",
+                    "last_updated": "not-a-date",
+                    "readings": [],
+                }
+            ]
+        }
+
+        response = client.post("/api/import", json=import_data)
+
+        assert response.status_code in (400, 422)
+
+    def test_invalid_reading_timestamp_returns_400(self, client):
+        import_data = {
+            "devices": [
+                {
+                    "device_id": "device-001",
+                    "device_name": "Meter",
+                    "device_type": "Meter",
+                    "readings": [
+                        {"timestamp": "not-a-date", "temperature": 25.0, "humidity": 60},
+                    ],
+                }
+            ]
+        }
+
+        response = client.post("/api/import", json=import_data)
+
+        assert response.status_code in (400, 422)
+
+    def test_empty_reading_timestamp_returns_400(self, client):
+        import_data = {
+            "devices": [
+                {
+                    "device_id": "device-001",
+                    "device_name": "Meter",
+                    "device_type": "Meter",
+                    "readings": [
+                        {"timestamp": "", "temperature": 25.0, "humidity": 60},
+                    ],
+                }
+            ]
+        }
+
+        response = client.post("/api/import", json=import_data)
+
+        assert response.status_code in (400, 422)
+
 
 class TestCorsConfiguration:
     def test_get_allowed_origins_parses_comma_separated(self, monkeypatch):
