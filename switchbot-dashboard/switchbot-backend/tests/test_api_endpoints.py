@@ -508,6 +508,16 @@ class TestApiKeyAuthentication:
 
         assert response.status_code == 401
 
+    def test_backup_returns_401_with_non_ascii_key(self, client, api_key_configured):
+        response = client.get("/api/backup", headers={"X-API-Key": "日本語キー".encode("utf-8")})
+
+        assert response.status_code == 401
+
+    def test_backup_returns_401_with_non_ascii_bearer_key(self, client, api_key_configured):
+        response = client.get("/api/backup", headers={"Authorization": "Bearer 日本語キー".encode("utf-8")})
+
+        assert response.status_code == 401
+
     def test_import_returns_401_with_wrong_bearer_key(self, client, api_key_configured):
         response = client.post(
             "/api/import",

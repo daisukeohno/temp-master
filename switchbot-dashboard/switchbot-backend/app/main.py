@@ -616,7 +616,8 @@ def require_api_key(request: Request) -> None:
         if scheme.lower() == "bearer":
             provided = param.strip()
 
-    if not provided or not hmac.compare_digest(provided, expected):
+    # hmac.compare_digest は str 同士だと非ASCIIで TypeError になるため bytes で比較する
+    if not provided or not hmac.compare_digest(provided.encode("utf-8"), expected.encode("utf-8")):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
