@@ -11,6 +11,10 @@ from fastapi.testclient import TestClient
 os.environ["SWITCHBOT_TOKEN"] = ""
 os.environ["SWITCHBOT_SECRET"] = ""
 
+# API key used to exercise the authenticated endpoints in tests.
+TEST_API_KEY = "test-dashboard-api-key"
+os.environ["DASHBOARD_API_KEY"] = TEST_API_KEY
+
 from app.main import (
     DB_PATH,
     DataStore,
@@ -149,6 +153,12 @@ def sample_switchbot_status_response() -> dict:
 @pytest.fixture
 def client(reset_data_store) -> TestClient:
     return TestClient(app)
+
+
+@pytest.fixture
+def auth_headers() -> dict:
+    """Valid X-API-Key header for authenticated endpoints."""
+    return {"X-API-Key": TEST_API_KEY}
 
 
 @pytest.fixture
