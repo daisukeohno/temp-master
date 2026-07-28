@@ -39,6 +39,20 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
    poetry run fastapi dev app/main.py
    ```
 
+### CORS設定（ALLOWED_ORIGINS）
+
+バックエンドの CORS 許可オリジンは環境変数 `ALLOWED_ORIGINS`（カンマ区切り）で設定します。
+
+- **既定値は空**（クロスオリジンのリクエストを一切許可しません）。本番ではフロントエンドがバックエンドと同一オリジンで配信されるため、設定は不要です。
+- 別オリジンのフロントエンド（例: ローカル開発の Vite `http://localhost:5173`）からアクセスする場合のみ、明示的に指定してください。
+
+  ```bash
+  ALLOWED_ORIGINS=http://localhost:5173,https://example.com
+  ```
+
+- `*`（ワイルドカード）を指定した場合、Cookie 等の資格情報の送信（`allow_credentials`）は自動的に無効化されます。ワイルドカード＋資格情報の組み合わせは危険なため許可していません。
+- 許可メソッドは `GET` / `POST` / `OPTIONS`、許可ヘッダは `Content-Type` / `Authorization` に限定しています。
+
 ### Frontend
 
 1. Navigate to the frontend directory:
