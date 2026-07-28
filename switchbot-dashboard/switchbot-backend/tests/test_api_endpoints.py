@@ -17,9 +17,19 @@ from app.main import (
 )
 
 
+TEST_API_KEY = "test-api-key"
+AUTH_HEADERS = {"Authorization": f"Bearer {TEST_API_KEY}"}
+
+
 @pytest.fixture
 def client(reset_data_store) -> TestClient:
     return TestClient(app)
+
+
+@pytest.fixture
+def api_key_configured():
+    with patch.object(main_module, "API_KEY", TEST_API_KEY):
+        yield TEST_API_KEY
 
 
 class TestHealthzEndpoint:
@@ -349,6 +359,7 @@ class TestGetStatusEndpoint:
             assert data["backoff_remaining"] == 0
 
 
+@pytest.mark.usefixtures("api_key_configured")
 class TestImportDataEndpoint:
     async def test_import_data_creates_devices(self, client, reset_data_store, temp_db_path):
         original_db_path = main_module.DB_PATH
@@ -372,7 +383,7 @@ class TestImportDataEndpoint:
                 ]
             }
             
-            response = client.post("/api/import", json=import_data)
+            response = client.post("/api/import", json=import_data, headers=AUTH_HEADERS)
             
             assert response.status_code == 200
             data = response.json()
@@ -416,7 +427,7 @@ class TestImportDataEndpoint:
                 ]
             }
             
-            response = client.post("/api/import", json=import_data)
+            response = client.post("/api/import", json=import_data, headers=AUTH_HEADERS)
             
             assert response.status_code == 200
             data = response.json()
@@ -449,7 +460,7 @@ class TestImportDataEndpoint:
                 ]
             }
             
-            response = client.post("/api/import", json=import_data)
+            response = client.post("/api/import", json=import_data, headers=AUTH_HEADERS)
             
             assert response.status_code == 200
             data = response.json()
@@ -463,9 +474,116 @@ class TestImportDataEndpoint:
     def test_import_data_empty_devices(self, client, reset_data_store):
         import_data = {"devices": []}
         
-        response = client.post("/api/import", json=import_data)
+        response = client.post("/api/import", json=import_data, headers=AUTH_HEADERS)
         
         assert response.status_code == 200
         data = response.json()
         assert data["imported_devices"] == 0
         assert data["imported_readings"] == 0
+
+
+class TestApiKeyAuthentication:
+    """API_KEY による機微エンドポイント保護のテスト。"""
+
+    def test_backup_returns_503_when_api_key_not_configured(self, client):
+        with patch.object(main_module, "API_KEY", ""):
+            response = client.get("/api/backup")
+
+        assert response.status_code == 503
+
+    def test_import_returns_503_when_api_key_not_configured(self, client):
+        with patch.object(main_module, "API_KEY", ""):
+            response = client.post("/api/import", json={"devices": []})
+
+        assert response.status_code == 503
+
+    def test_backup_returns_401_without_key(self, client, api_key_configured):
+        response = client.get("/api/backup")
+
+        assert response.status_code == 401
+        assert TEST_API_KEY not in response.text
+
+    def test_backup_returns_401_with_wrong_key(self, client, api_key_configured):
+        response = client.get("/api/backup", headers={"X-API-Key": "wrong-key"})
+
+        assert response.status_code == 401
+
+    def test_import_returns_401_with_wrong_bearer_key(self, client, api_key_configured):
+        response = client.post(
+            "/api/import",
+            json={"devices": []},
+            headers={"Authorization": "Bearer wrong-key"},
+        )
+
+        assert response.status_code == 401
+
+    def test_backup_succeeds_with_bearer_key(self, client, api_key_configured, temp_db_path):
+        original_db_path = main_module.DB_PATH
+        main_module.DB_PATH = temp_db_path
+        try:
+            with open(temp_db_path, "wb") as f:
+                f.write(b"sqlite")
+            response = client.get("/api/backup", headers=AUTH_HEADERS)
+        finally:
+            main_module.DB_PATH = original_db_path
+
+        assert response.status_code == 200
+
+    def test_backup_succeeds_with_x_api_key_header(self, client, api_key_configured, temp_db_path):
+        original_db_path = main_module.DB_PATH
+        main_module.DB_PATH = temp_db_path
+        try:
+            with open(temp_db_path, "wb") as f:
+                f.write(b"sqlite")
+            response = client.get("/api/backup", headers={"X-API-Key": TEST_API_KEY})
+        finally:
+            main_module.DB_PATH = original_db_path
+
+        assert response.status_code == 200
+
+    def test_import_succeeds_with_x_api_key_header(self, client, api_key_configured):
+        response = client.post(
+            "/api/import",
+            json={"devices": []},
+            headers={"X-API-Key": TEST_API_KEY},
+        )
+
+        assert response.status_code == 200
+
+    def test_public_endpoints_remain_unauthenticated(self, client):
+        with patch.object(main_module, "API_KEY", ""):
+            assert client.get("/healthz").status_code == 200
+            assert client.get("/api/meters").status_code == 200
+            assert client.get("/api/status").status_code == 200
+
+    def test_meter_history_remains_unauthenticated(self, client, reset_data_store):
+        data_store.devices["device-001"] = MeterDevice(
+            device_id="device-001",
+            device_name="Test Meter",
+            device_type="Meter",
+        )
+
+        with patch.object(main_module, "API_KEY", ""):
+            response = client.get("/api/meters/device-001/history")
+
+        assert response.status_code == 200
+
+
+class TestRefreshThrottling:
+    def test_second_refresh_within_interval_returns_429(self, client, reset_data_store):
+        with patch.object(main_module, "SWITCHBOT_TOKEN", "test-token"), \
+             patch.object(main_module, "SWITCHBOT_SECRET", "test-secret"), \
+             patch("app.main.collect_data", new_callable=AsyncMock):
+            first = client.post("/api/meters/refresh")
+            second = client.post("/api/meters/refresh")
+
+        assert first.status_code == 200
+        assert second.status_code == 429
+
+    def test_refresh_allowed_after_interval(self, client, reset_data_store):
+        with patch.object(main_module, "SWITCHBOT_TOKEN", "test-token"), \
+             patch.object(main_module, "SWITCHBOT_SECRET", "test-secret"), \
+             patch.object(main_module, "REFRESH_MIN_INTERVAL", 0), \
+             patch("app.main.collect_data", new_callable=AsyncMock):
+            assert client.post("/api/meters/refresh").status_code == 200
+            assert client.post("/api/meters/refresh").status_code == 200

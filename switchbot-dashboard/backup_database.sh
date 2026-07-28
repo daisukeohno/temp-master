@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Temp Master Dashboard Database Backup Script
 # This script periodically downloads the SQLite database from the deployed backend
@@ -12,9 +13,12 @@
 # Configuration:
 #   Set SWITCHBOT_BACKEND_URL environment variable or edit the default below
 #   Set BACKUP_DIR environment variable to change the backup directory
+#   Set API_KEY (or SWITCHBOT_API_KEY) environment variable with the backend API key.
+#   /api/backup requires authentication, so this variable is mandatory.
 
 BACKEND_URL="${SWITCHBOT_BACKEND_URL:-https://temp-master.fly.dev}"
 BACKUP_DIR="${BACKUP_DIR:-$HOME/switchbot_backups}"
+API_KEY="${API_KEY:-${SWITCHBOT_API_KEY:-}}"
 DEFAULT_INTERVAL=3600  # 1 hour in seconds
 
 LOOP_MODE=false
@@ -43,6 +47,7 @@ while [[ $# -gt 0 ]]; do
             echo "Environment variables:"
             echo "  SWITCHBOT_BACKEND_URL  Backend URL (default: https://temp-master.fly.dev)"
             echo "  BACKUP_DIR             Backup directory (default: ~/switchbot_backups)"
+            echo "  API_KEY                Backend API key (required; SWITCHBOT_API_KEY also accepted)"
             exit 0
             ;;
         *)
@@ -53,22 +58,35 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+if [ -z "$API_KEY" ]; then
+    echo "Error: API_KEY (or SWITCHBOT_API_KEY) is not set." >&2
+    echo "The /api/backup endpoint requires authentication. Example:" >&2
+    echo "  API_KEY=your_api_key $0" >&2
+    exit 1
+fi
+
 mkdir -p "$BACKUP_DIR"
 
 backup_database() {
-    local timestamp=$(date +%Y%m%d_%H%M%S)
+    local timestamp
+    timestamp="$(date +%Y%m%d_%H%M%S)"
     local backup_file="$BACKUP_DIR/switchbot_backup_${timestamp}.db"
     
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting backup..."
     
-    local http_code=$(curl -s -w "%{http_code}" -o "$backup_file" "$BACKEND_URL/api/backup")
+    local http_code
+    http_code="$(curl -s -w "%{http_code}" -o "$backup_file" \
+        -H "Authorization: Bearer $API_KEY" \
+        "$BACKEND_URL/api/backup")"
     
     if [ "$http_code" -eq 200 ]; then
-        local file_size=$(ls -lh "$backup_file" | awk '{print $5}')
+        local file_size
+        file_size="$(ls -lh "$backup_file" | awk '{print $5}')"
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] Backup successful: $backup_file ($file_size)"
         
         # Keep only the last 30 backups to prevent disk space issues
-        local backup_count=$(ls -1 "$BACKUP_DIR"/switchbot_backup_*.db 2>/dev/null | wc -l)
+        local backup_count
+        backup_count="$(ls -1 "$BACKUP_DIR"/switchbot_backup_*.db 2>/dev/null | wc -l)"
         if [ "$backup_count" -gt 30 ]; then
             local files_to_delete=$((backup_count - 30))
             echo "[$(date '+%Y-%m-%d %H:%M:%S')] Cleaning up $files_to_delete old backup(s)..."
@@ -95,10 +113,11 @@ if [ "$LOOP_MODE" = true ]; then
     echo ""
     
     while true; do
-        backup_database
+        backup_database || true
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] Next backup in ${INTERVAL} seconds..."
         sleep "$INTERVAL"
     done
 else
     backup_database
 fi
+
