@@ -70,6 +70,18 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
 - `POST /api/meters/refresh` - Triggers immediate data collection
 - `GET /api/status` - Returns backend status and configuration
 
+## APIキー認証（API_KEY）
+
+`GET /api/backup` と `POST /api/import` は API キー認証が必須です。
+バックエンドの環境変数 `API_KEY` を設定し、`Authorization: Bearer <key>` または
+`X-API-Key: <key>` ヘッダで呼び出してください。
+
+- `API_KEY` が未設定の場合、これらのエンドポイントは 503 を返します（フェイルクローズド）。
+- Fly.io では次のように設定します: `fly secrets set API_KEY=$(openssl rand -hex 32)`
+- `backup_database.sh` も `API_KEY` 環境変数が必要です。
+
+詳細は [switchbot-backend/README.md](switchbot-backend/README.md) を参照してください。
+
 ## Notes
 
 - Temperature history is stored in memory and resets on backend restart

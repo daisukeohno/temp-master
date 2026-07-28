@@ -15,7 +15,7 @@ import httpx
 from dotenv import load_dotenv
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -28,6 +28,13 @@ DB_PATH = os.getenv("DB_PATH", "/data/app.db" if os.path.exists("/data") else "a
 SWITCHBOT_API_BASE = "https://api.switch-bot.com/v1.1"
 SWITCHBOT_TOKEN = os.getenv("SWITCHBOT_TOKEN", "")
 SWITCHBOT_SECRET = os.getenv("SWITCHBOT_SECRET", "")
+
+# 機微エンドポイント(/api/backup, /api/import)用の共有シークレット。
+# 未設定の場合は fail-closed(503)となる。
+API_KEY = os.getenv("API_KEY", "")
+
+# /api/meters/refresh の最短呼び出し間隔(秒)
+REFRESH_MIN_INTERVAL = int(os.getenv("REFRESH_MIN_INTERVAL", "60"))
 
 DATA_COLLECTION_INTERVAL = 3600
 RATE_LIMIT_BACKOFF_BASE = 60
@@ -78,6 +85,7 @@ class DataStore:
         self.devices: dict[str, MeterDevice] = {}
         self.history: dict[str, list[MeterReading]] = {}
         self.last_api_call: float = 0
+        self.last_refresh_request: float = 0
         self.backoff_until: float = 0
         self.consecutive_errors: int = 0
         self.is_collecting: bool = False
@@ -595,6 +603,24 @@ app.add_middleware(
 )
 
 
+def require_api_key(request: Request) -> None:
+    """Authorization: Bearer <key> または X-API-Key ヘッダで共有シークレットを検証する。"""
+    expected = API_KEY
+    if not expected:
+        raise HTTPException(status_code=503, detail="API key authentication is not configured")
+
+    provided = request.headers.get("x-api-key")
+    if not provided:
+        authorization = request.headers.get("authorization", "")
+        scheme, _, param = authorization.partition(" ")
+        if scheme.lower() == "bearer":
+            provided = param.strip()
+
+    # hmac.compare_digest は str 同士だと非ASCIIで TypeError になるため bytes で比較する
+    if not provided or not hmac.compare_digest(provided.encode("utf-8"), expected.encode("utf-8")):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 @app.get("/healthz")
 async def healthz():
     return {"status": "ok"}
@@ -643,6 +669,15 @@ async def get_meter_history(device_id: str, time_scale: TimeScale = TimeScale.HO
 
 @app.post("/api/meters/refresh")
 async def refresh_meters():
+    now = time.monotonic()
+    elapsed = now - data_store.last_refresh_request
+    if data_store.last_refresh_request and elapsed < REFRESH_MIN_INTERVAL:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many refresh requests. Retry after {int(REFRESH_MIN_INTERVAL - elapsed) + 1} seconds",
+        )
+    data_store.last_refresh_request = now
+
     if not SWITCHBOT_TOKEN or not SWITCHBOT_SECRET:
         raise HTTPException(status_code=500, detail="SwitchBot credentials not configured")
     
@@ -729,7 +764,7 @@ class ImportData(BaseModel):
     devices: list[ImportDeviceData]
 
 
-@app.post("/api/import")
+@app.post("/api/import", dependencies=[Depends(require_api_key)])
 async def import_data(data: ImportData):
     """Import historical data from another backend instance."""
     imported_devices = 0
@@ -773,7 +808,7 @@ async def import_data(data: ImportData):
     }
 
 
-@app.get("/api/backup")
+@app.get("/api/backup", dependencies=[Depends(require_api_key)])
 async def backup_database():
     """Download the SQLite database file for backup purposes."""
     if not os.path.exists(DB_PATH):
