@@ -9,8 +9,17 @@ import {
 } from 'recharts'
 import type { TimeScale } from '../api/types'
 import { useMeterHistory } from '../hooks/useMeterHistory'
-import { useChartColors } from '../theme/useTheme'
 import { formatTimestamp } from '../utils/format'
+
+/** Colors reference the CSS variables of the active theme, so they follow theme switches. */
+const colors = {
+  line: 'var(--chart-line)',
+  grid: 'var(--chart-grid)',
+  axis: 'var(--chart-axis)',
+  tooltipBg: 'var(--panel-bg)',
+  tooltipBorder: 'var(--border-color)',
+  text: 'var(--text-color)',
+}
 
 interface Props {
   deviceId: string
@@ -18,7 +27,6 @@ interface Props {
 }
 
 export function TemperatureChart({ deviceId, timeScale }: Props) {
-  const colors = useChartColors()
   const { data, isPending, isError } = useMeterHistory(deviceId, timeScale)
 
   if (isPending) {

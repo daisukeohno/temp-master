@@ -64,6 +64,12 @@ export function App() {
           </div>
         )}
 
+        {refresh.isError && (
+          <div className="alert alert-danger">
+            <strong>Error.</strong> {`Failed to refresh: ${refresh.error.message}`}
+          </div>
+        )}
+
         {metersQuery.isPending ? (
           <div className="loading">Loading temperature data...</div>
         ) : (
