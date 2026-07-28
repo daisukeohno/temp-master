@@ -4,8 +4,10 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
 
 ## Features
 
+- React 18 + TypeScript + Vite frontend with TanStack Query for data fetching
 - Temperature charts for all SwitchBot Meter devices using Recharts
-- Time scale switching (hour/day/month/year)
+- Multiple themes (Light / Dark / High Contrast / Ocean) with `localStorage` persistence
+- Time scale switching (hour/day/week/month/year)
 - Auto-refresh every 30 seconds (frontend) with background data collection every 2 minutes (backend)
 - Rate limiting protection with exponential backoff
 - All API calls are cached - GET endpoints never call SwitchBot API directly
@@ -41,6 +43,9 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
 
 ### Frontend
 
+Stack: React 18, TypeScript, Vite, TanStack Query, Recharts. CSS-variable based theming
+(`data-theme` attribute on `document.documentElement`).
+
 1. Navigate to the frontend directory:
    ```bash
    cd switchbot-frontend
@@ -51,10 +56,14 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
    npm install
    ```
 
-3. Copy `.env.example` to `.env`:
+3. Copy `.env.example` to `.env` (optional):
    ```bash
    cp .env.example .env
    ```
+
+   - `VITE_API_URL` overrides the API base URL. Leave empty to use the same origin.
+   - `VITE_DEV_PROXY_TARGET` (default `http://localhost:8000`) is the backend the Vite dev
+     server proxies `/api` requests to.
 
 4. Start the development server:
    ```bash
@@ -62,6 +71,31 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
    ```
 
 5. Open http://localhost:5173 in your browser
+
+#### Production build
+
+```bash
+npm run build   # emits static assets into switchbot-frontend/dist/
+npm run preview # serve the build locally
+```
+
+The FastAPI backend serves whatever is in `switchbot-backend/static/` and falls back to
+`index.html` for unknown paths, so the Vite output can be served as-is. To serve the built
+frontend from the backend locally, point the static directory at `dist`:
+
+```bash
+cd switchbot-dashboard/switchbot-frontend && npm run build
+ln -s $(pwd)/dist ../switchbot-backend/static
+```
+
+The symlink must exist before the backend starts (`STATIC_DIR` is resolved at import time).
+
+#### Themes
+
+The navbar theme switcher offers Light, Dark, High Contrast and Ocean. The selection is
+stored in `localStorage` (`temp-master-theme`); on first visit the OS `prefers-color-scheme`
+setting is used. Colors — including the Recharts line/fill/grid colors — come from CSS
+variables defined per theme in `src/theme/themes.css`.
 
 ## API Endpoints
 
@@ -74,5 +108,5 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
 
 - Temperature history is stored in memory and resets on backend restart
 - Backend data collection interval: 2 minutes minimum
-- Frontend refresh interval: 30 seconds
+- Frontend refresh interval: 30 seconds (React Query `refetchInterval`)
 - SwitchBot API has strict rate limits (~10000 requests/day)
