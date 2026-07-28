@@ -151,6 +151,22 @@ def client(reset_data_store) -> TestClient:
     return TestClient(app)
 
 
+TEST_ADMIN_API_KEY = "test-admin-api-key"
+
+
+@pytest.fixture
+def admin_api_key() -> Generator[str, None, None]:
+    """管理者APIキーを設定した状態にする。"""
+    with patch("app.main.ADMIN_API_KEY", TEST_ADMIN_API_KEY):
+        yield TEST_ADMIN_API_KEY
+
+
+@pytest.fixture
+def auth_headers(admin_api_key: str) -> dict:
+    """認証必須エンドポイント向けのリクエストヘッダー。"""
+    return {"X-API-Key": admin_api_key}
+
+
 @pytest.fixture
 def mock_switchbot_credentials():
     with patch("app.main.SWITCHBOT_TOKEN", "test-token"), \

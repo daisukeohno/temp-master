@@ -22,6 +22,68 @@ def client(reset_data_store) -> TestClient:
     return TestClient(app)
 
 
+PROTECTED_REQUESTS = [
+    ("GET", "/api/backup", None),
+    ("POST", "/api/import", {"devices": []}),
+    ("POST", "/api/meters/refresh", None),
+]
+
+
+class TestAdminApiKeyAuth:
+    """機密/状態変更系エンドポイントの認証仕様。"""
+
+    @pytest.mark.parametrize("method,path,json_body", PROTECTED_REQUESTS)
+    def test_requires_api_key(self, client, admin_api_key, method, path, json_body):
+        response = client.request(method, path, json=json_body)
+
+        assert response.status_code == 401
+
+    @pytest.mark.parametrize("method,path,json_body", PROTECTED_REQUESTS)
+    def test_rejects_wrong_api_key(self, client, admin_api_key, method, path, json_body):
+        response = client.request(
+            method, path, json=json_body, headers={"X-API-Key": "wrong-key"}
+        )
+
+        assert response.status_code == 401
+
+    @pytest.mark.parametrize("method,path,json_body", PROTECTED_REQUESTS)
+    def test_fails_closed_when_key_not_configured(self, client, method, path, json_body):
+        with patch.object(main_module, "ADMIN_API_KEY", ""):
+            response = client.request(method, path, json=json_body)
+
+            assert response.status_code == 503
+
+    def test_accepts_bearer_token(self, client, admin_api_key, reset_data_store):
+        response = client.post(
+            "/api/import",
+            json={"devices": []},
+            headers={"Authorization": f"Bearer {admin_api_key}"},
+        )
+
+        assert response.status_code == 200
+
+    @pytest.mark.parametrize(
+        "path",
+        ["/healthz", "/api/meters", "/api/status", "/api/latency-logs", "/api/latency-stats"],
+    )
+    def test_read_only_endpoints_do_not_require_api_key(self, client, admin_api_key, path):
+        response = client.get(path)
+
+        assert response.status_code == 200
+
+
+class TestCorsConfiguration:
+    def test_credentials_not_allowed_and_no_wildcard_origin(self):
+        assert main_module.ALLOWED_ORIGINS != ["*"]
+        assert "*" not in main_module.ALLOWED_ORIGINS
+
+        cors_middleware = [
+            m for m in app.user_middleware if m.cls.__name__ == "CORSMiddleware"
+        ]
+        assert len(cors_middleware) == 1
+        assert cors_middleware[0].kwargs["allow_credentials"] is False
+
+
 class TestHealthzEndpoint:
     def test_healthz_returns_ok(self, client):
         response = client.get("/healthz")
@@ -268,15 +330,15 @@ class TestGetMeterHistoryEndpoint:
 
 
 class TestRefreshMetersEndpoint:
-    def test_refresh_meters_no_credentials(self, client):
+    def test_refresh_meters_no_credentials(self, client, auth_headers):
         with patch.object(main_module, "SWITCHBOT_TOKEN", ""), \
              patch.object(main_module, "SWITCHBOT_SECRET", ""):
-            response = client.post("/api/meters/refresh")
+            response = client.post("/api/meters/refresh", headers=auth_headers)
             
             assert response.status_code == 500
             assert "credentials not configured" in response.json()["detail"].lower()
 
-    def test_refresh_meters_success(self, client, reset_data_store):
+    def test_refresh_meters_success(self, client, reset_data_store, auth_headers):
         with patch.object(main_module, "SWITCHBOT_TOKEN", "test-token"), \
              patch.object(main_module, "SWITCHBOT_SECRET", "test-secret"), \
              patch("app.main.collect_data", new_callable=AsyncMock) as mock_collect:
@@ -287,7 +349,7 @@ class TestRefreshMetersEndpoint:
                 device_type="Meter",
             )
             
-            response = client.post("/api/meters/refresh")
+            response = client.post("/api/meters/refresh", headers=auth_headers)
             
             assert response.status_code == 200
             data = response.json()
@@ -350,7 +412,7 @@ class TestGetStatusEndpoint:
 
 
 class TestImportDataEndpoint:
-    async def test_import_data_creates_devices(self, client, reset_data_store, temp_db_path):
+    async def test_import_data_creates_devices(self, client, reset_data_store, temp_db_path, auth_headers):
         original_db_path = main_module.DB_PATH
         main_module.DB_PATH = temp_db_path
         
@@ -372,7 +434,7 @@ class TestImportDataEndpoint:
                 ]
             }
             
-            response = client.post("/api/import", json=import_data)
+            response = client.post("/api/import", json=import_data, headers=auth_headers)
             
             assert response.status_code == 200
             data = response.json()
@@ -385,7 +447,7 @@ class TestImportDataEndpoint:
         finally:
             main_module.DB_PATH = original_db_path
 
-    async def test_import_data_creates_readings(self, client, reset_data_store, temp_db_path):
+    async def test_import_data_creates_readings(self, client, reset_data_store, temp_db_path, auth_headers):
         original_db_path = main_module.DB_PATH
         main_module.DB_PATH = temp_db_path
         
@@ -416,7 +478,7 @@ class TestImportDataEndpoint:
                 ]
             }
             
-            response = client.post("/api/import", json=import_data)
+            response = client.post("/api/import", json=import_data, headers=auth_headers)
             
             assert response.status_code == 200
             data = response.json()
@@ -425,7 +487,7 @@ class TestImportDataEndpoint:
         finally:
             main_module.DB_PATH = original_db_path
 
-    async def test_import_data_multiple_devices(self, client, reset_data_store, temp_db_path):
+    async def test_import_data_multiple_devices(self, client, reset_data_store, temp_db_path, auth_headers):
         original_db_path = main_module.DB_PATH
         main_module.DB_PATH = temp_db_path
         
@@ -449,7 +511,7 @@ class TestImportDataEndpoint:
                 ]
             }
             
-            response = client.post("/api/import", json=import_data)
+            response = client.post("/api/import", json=import_data, headers=auth_headers)
             
             assert response.status_code == 200
             data = response.json()
@@ -460,10 +522,10 @@ class TestImportDataEndpoint:
         finally:
             main_module.DB_PATH = original_db_path
 
-    def test_import_data_empty_devices(self, client, reset_data_store):
+    def test_import_data_empty_devices(self, client, reset_data_store, auth_headers):
         import_data = {"devices": []}
         
-        response = client.post("/api/import", json=import_data)
+        response = client.post("/api/import", json=import_data, headers=auth_headers)
         
         assert response.status_code == 200
         data = response.json()
