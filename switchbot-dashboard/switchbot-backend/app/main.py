@@ -2,6 +2,7 @@ import asyncio
 import base64
 import hashlib
 import hmac
+import logging
 import os
 import time
 import uuid
@@ -15,12 +16,15 @@ import httpx
 from dotenv import load_dotenv
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 # Database path - use /data/app.db for persistent volume in production
 DB_PATH = os.getenv("DB_PATH", "/data/app.db" if os.path.exists("/data") else "app.db")
@@ -28,6 +32,19 @@ DB_PATH = os.getenv("DB_PATH", "/data/app.db" if os.path.exists("/data") else "a
 SWITCHBOT_API_BASE = "https://api.switch-bot.com/v1.1"
 SWITCHBOT_TOKEN = os.getenv("SWITCHBOT_TOKEN", "")
 SWITCHBOT_SECRET = os.getenv("SWITCHBOT_SECRET", "")
+
+# Bearer token protecting the administrative endpoints (/api/backup, /api/import)
+API_TOKEN = os.getenv("API_TOKEN", "")
+
+# Comma separated list of origins allowed to call the API from a browser
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "ALLOWED_ORIGINS",
+        "https://temp-master.fly.dev,http://localhost:8000,http://localhost:5173",
+    ).split(",")
+    if origin.strip()
+]
 
 DATA_COLLECTION_INTERVAL = 3600
 RATE_LIMIT_BACKOFF_BASE = 60
@@ -435,7 +452,7 @@ async def call_switchbot_api(endpoint: str, device_id: Optional[str] = None) -> 
                 )
                 raise HTTPException(
                     status_code=response.status_code,
-                    detail=f"SwitchBot API error: {response.text}",
+                    detail=f"SwitchBot API error (status {response.status_code})",
                 )
             
             await save_latency_log(
@@ -459,7 +476,8 @@ async def call_switchbot_api(endpoint: str, device_id: Optional[str] = None) -> 
                 device_id=device_id,
                 error_message=f"Request error: {str(e)}",
             )
-            raise HTTPException(status_code=500, detail=f"Request error: {str(e)}")
+            logger.warning("SwitchBot request error on %s: %s", endpoint, e)
+            raise HTTPException(status_code=500, detail="Failed to reach the SwitchBot API")
 
 
 async def fetch_devices() -> list[MeterDevice]:
@@ -551,10 +569,10 @@ async def collect_data():
                 if e.status_code == 429:
                     break
                     
-    except HTTPException:
-        pass
+    except HTTPException as e:
+        logger.warning("Data collection failed: %s", e.detail)
     except Exception:
-        pass
+        logger.exception("Unexpected error during data collection")
 
 
 async def background_collector():
@@ -588,11 +606,30 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
+async def require_api_token(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+) -> None:
+    """Require a valid Bearer token for administrative endpoints.
+
+    Fails closed: when API_TOKEN is not configured the endpoints are unavailable.
+    """
+    if not API_TOKEN:
+        raise HTTPException(status_code=503, detail="API_TOKEN is not configured")
+    if credentials is None or not hmac.compare_digest(credentials.credentials, API_TOKEN):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or missing API token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 @app.get("/healthz")
@@ -729,7 +766,7 @@ class ImportData(BaseModel):
     devices: list[ImportDeviceData]
 
 
-@app.post("/api/import")
+@app.post("/api/import", dependencies=[Depends(require_api_token)])
 async def import_data(data: ImportData):
     """Import historical data from another backend instance."""
     imported_devices = 0
@@ -773,7 +810,7 @@ async def import_data(data: ImportData):
     }
 
 
-@app.get("/api/backup")
+@app.get("/api/backup", dependencies=[Depends(require_api_token)])
 async def backup_database():
     """Download the SQLite database file for backup purposes."""
     if not os.path.exists(DB_PATH):

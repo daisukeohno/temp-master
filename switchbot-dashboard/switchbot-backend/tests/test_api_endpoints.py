@@ -350,7 +350,7 @@ class TestGetStatusEndpoint:
 
 
 class TestImportDataEndpoint:
-    async def test_import_data_creates_devices(self, client, reset_data_store, temp_db_path):
+    async def test_import_data_creates_devices(self, client, reset_data_store, temp_db_path, api_token_headers):
         original_db_path = main_module.DB_PATH
         main_module.DB_PATH = temp_db_path
         
@@ -372,7 +372,7 @@ class TestImportDataEndpoint:
                 ]
             }
             
-            response = client.post("/api/import", json=import_data)
+            response = client.post("/api/import", json=import_data, headers=api_token_headers)
             
             assert response.status_code == 200
             data = response.json()
@@ -385,7 +385,7 @@ class TestImportDataEndpoint:
         finally:
             main_module.DB_PATH = original_db_path
 
-    async def test_import_data_creates_readings(self, client, reset_data_store, temp_db_path):
+    async def test_import_data_creates_readings(self, client, reset_data_store, temp_db_path, api_token_headers):
         original_db_path = main_module.DB_PATH
         main_module.DB_PATH = temp_db_path
         
@@ -416,7 +416,7 @@ class TestImportDataEndpoint:
                 ]
             }
             
-            response = client.post("/api/import", json=import_data)
+            response = client.post("/api/import", json=import_data, headers=api_token_headers)
             
             assert response.status_code == 200
             data = response.json()
@@ -425,7 +425,7 @@ class TestImportDataEndpoint:
         finally:
             main_module.DB_PATH = original_db_path
 
-    async def test_import_data_multiple_devices(self, client, reset_data_store, temp_db_path):
+    async def test_import_data_multiple_devices(self, client, reset_data_store, temp_db_path, api_token_headers):
         original_db_path = main_module.DB_PATH
         main_module.DB_PATH = temp_db_path
         
@@ -449,7 +449,7 @@ class TestImportDataEndpoint:
                 ]
             }
             
-            response = client.post("/api/import", json=import_data)
+            response = client.post("/api/import", json=import_data, headers=api_token_headers)
             
             assert response.status_code == 200
             data = response.json()
@@ -460,12 +460,78 @@ class TestImportDataEndpoint:
         finally:
             main_module.DB_PATH = original_db_path
 
-    def test_import_data_empty_devices(self, client, reset_data_store):
+    def test_import_data_empty_devices(self, client, reset_data_store, api_token_headers):
         import_data = {"devices": []}
         
-        response = client.post("/api/import", json=import_data)
+        response = client.post("/api/import", json=import_data, headers=api_token_headers)
         
         assert response.status_code == 200
         data = response.json()
         assert data["imported_devices"] == 0
         assert data["imported_readings"] == 0
+
+    def test_import_data_requires_token(self, client, reset_data_store, api_token_headers):
+        response = client.post("/api/import", json={"devices": []})
+
+        assert response.status_code == 401
+        assert "device-001" not in data_store.devices
+
+    def test_import_data_rejects_wrong_token(self, client, reset_data_store, api_token_headers):
+        response = client.post(
+            "/api/import",
+            json={"devices": []},
+            headers={"Authorization": "Bearer wrong-token"},
+        )
+
+        assert response.status_code == 401
+
+    def test_import_data_unavailable_without_configured_token(self, client, reset_data_store):
+        with patch.object(main_module, "API_TOKEN", ""):
+            response = client.post(
+                "/api/import",
+                json={"devices": []},
+                headers={"Authorization": "Bearer anything"},
+            )
+
+        assert response.status_code == 503
+
+
+class TestBackupEndpoint:
+    def test_backup_requires_token(self, client, reset_data_store, api_token_headers):
+        response = client.get("/api/backup")
+
+        assert response.status_code == 401
+
+    def test_backup_rejects_wrong_token(self, client, reset_data_store, api_token_headers):
+        response = client.get("/api/backup", headers={"Authorization": "Bearer wrong-token"})
+
+        assert response.status_code == 401
+
+    def test_backup_unavailable_without_configured_token(self, client, reset_data_store):
+        with patch.object(main_module, "API_TOKEN", ""):
+            response = client.get("/api/backup", headers={"Authorization": "Bearer anything"})
+
+        assert response.status_code == 503
+
+    def test_backup_with_valid_token_returns_database(self, client, reset_data_store, api_token_headers):
+        response = client.get("/api/backup", headers=api_token_headers)
+
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "application/x-sqlite3"
+        assert response.content[:16] == b"SQLite format 3\x00"
+
+
+class TestCORSConfiguration:
+    def test_wildcard_origin_is_not_allowed(self, client):
+        response = client.get(
+            "/api/status", headers={"Origin": "https://evil.example.com"}
+        )
+
+        assert "access-control-allow-origin" not in response.headers
+
+    def test_configured_origin_is_allowed_without_credentials(self, client):
+        origin = main_module.ALLOWED_ORIGINS[0]
+        response = client.get("/api/status", headers={"Origin": origin})
+
+        assert response.headers["access-control-allow-origin"] == origin
+        assert "access-control-allow-credentials" not in response.headers

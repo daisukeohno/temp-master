@@ -659,7 +659,33 @@
       });
 
       $('#btn-backup').click(function() {
-        window.open(API_URL + '/api/backup', '_blank');
+        var token = sessionStorage.getItem('apiToken');
+        if (!token) {
+          token = window.prompt('Enter the API token');
+          if (!token) {
+            return;
+          }
+        }
+
+        fetch(API_URL + '/api/backup', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        }).then(function(response) {
+          if (!response.ok) {
+            sessionStorage.removeItem('apiToken');
+            throw new Error('Backup failed with status ' + response.status);
+          }
+          sessionStorage.setItem('apiToken', token);
+          return response.blob();
+        }).then(function(blob) {
+          var url = URL.createObjectURL(blob);
+          var link = document.createElement('a');
+          link.href = url;
+          link.download = 'switchbot_backup.db';
+          link.click();
+          URL.revokeObjectURL(url);
+        }).catch(function(err) {
+          showError(err.message);
+        });
       });
     });
   </script>
