@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+[data-theme='light'] {
+  --color-bg: #f5f5f5;
+  --color-panel: #ffffff;
+  --color-panel-header: #f8f8f8;
+  --color-border: #dddddd;
+  --color-text: #333333;
+  --color-muted: #777777;
+  --color-accent: #d9534f;
+  --color-accent-contrast: #ffffff;
+  --color-warning: #8a6d3b;
+  --color-warning-bg: #fcf8e3;
+}
+
+[data-theme='dark'] {
+  --color-bg: #14181f;
+  --color-panel: #1e242e;
+  --color-panel-header: #262e3a;
+  --color-border: #37404f;
+  --color-text: #e6eaf0;
+  --color-muted: #98a2b3;
+  --color-accent: #f59e0b;
+  --color-accent-contrast: #14181f;
+  --color-warning: #fbbf24;
+  --color-warning-bg: #3a2f14;
+}
+
+[data-theme='ocean'] {
+  --color-bg: #e7f2f8;
+  --color-panel: #ffffff;
+  --color-panel-header: #d6e9f3;
+  --color-border: #a9cbdd;
+  --color-text: #0b3c5d;
+  --color-accent: #0f8b8d;
+  --color-accent-contrast: #ffffff;
+  --color-muted: #4a7b96;
+  --color-warning: #b45309;
+  --color-warning-bg: #fdf1dd;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+}

@@ -4,8 +4,10 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
 
 ## Features
 
+- React 18 + TypeScript + Vite SPA with Tailwind CSS
 - Temperature charts for all SwitchBot Meter devices using Recharts
-- Time scale switching (hour/day/month/year)
+- Multiple themes (Light / Dark / Ocean) with `localStorage` persistence and `prefers-color-scheme` default
+- Time scale switching (hour/day/week/month/year)
 - Auto-refresh every 30 seconds (frontend) with background data collection every 2 minutes (backend)
 - Rate limiting protection with exponential backoff
 - All API calls are cached - GET endpoints never call SwitchBot API directly
@@ -61,7 +63,15 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
    npm run dev
    ```
 
-5. Open http://localhost:5173 in your browser
+5. Open http://localhost:5173 in your browser (`/api` requests are proxied to `http://localhost:8000`)
+
+6. Build for production:
+   ```bash
+   npm run build
+   ```
+   The output is written to `switchbot-frontend/dist/`, which the Dockerfile copies into the backend's `static/` directory.
+
+Other scripts: `npm run lint` (ESLint), `npm run test` (Vitest), `npm run format` (Prettier).
 
 ## API Endpoints
 
