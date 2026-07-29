@@ -14,7 +14,8 @@ import {
 import { Line } from "react-chartjs-2";
 import type { MeterReading, TimeScale } from "../api/types";
 import { formatTimestamp } from "../utils/meter";
-import { readThemeVar, useTheme } from "../theme/ThemeContext";
+import { useTheme } from "../theme/ThemeContext";
+import { CHART_COLORS } from "../theme/themes";
 
 ChartJS.register(
   CategoryScale,
@@ -31,15 +32,10 @@ interface MeterChartProps {
 }
 
 export function MeterChart({ history, timeScale }: MeterChartProps) {
-  // `theme` participates in the deps so colors recompute on theme change.
   const { theme } = useTheme();
 
   const { data, options } = useMemo(() => {
-    const lineColor = readThemeVar("--chart-line") || "#d9534f";
-    const fillColor = readThemeVar("--chart-fill") || "rgba(217,83,79,0.15)";
-    const gridColor = readThemeVar("--chart-grid") || "rgba(0,0,0,0.05)";
-    const tickColor = readThemeVar("--chart-tick") || "#777";
-    const pointHover = readThemeVar("--chart-point-hover") || "#5bc0de";
+    const colors = CHART_COLORS[theme];
 
     const chartData: ChartData<"line"> = {
       labels: history.map((h) => formatTimestamp(h.timestamp, timeScale)),
@@ -47,14 +43,14 @@ export function MeterChart({ history, timeScale }: MeterChartProps) {
         {
           label: "Temperature (C)",
           data: history.map((h) => h.temperature),
-          borderColor: lineColor,
-          backgroundColor: fillColor,
+          borderColor: colors.line,
+          backgroundColor: colors.fill,
           borderWidth: 2,
           pointRadius: 3,
-          pointBackgroundColor: lineColor,
-          pointBorderColor: lineColor,
+          pointBackgroundColor: colors.line,
+          pointBorderColor: colors.line,
           pointHoverRadius: 5,
-          pointHoverBackgroundColor: pointHover,
+          pointHoverBackgroundColor: colors.pointHover,
           fill: true,
           tension: 0.4,
         },
@@ -80,22 +76,21 @@ export function MeterChart({ history, timeScale }: MeterChartProps) {
       },
       scales: {
         x: {
-          grid: { color: gridColor },
-          ticks: { maxTicksLimit: 8, font: { size: 10 }, color: tickColor },
+          grid: { color: colors.grid },
+          ticks: { maxTicksLimit: 8, font: { size: 10 }, color: colors.tick },
         },
         y: {
-          grid: { color: gridColor },
+          grid: { color: colors.grid },
           ticks: {
             font: { size: 10 },
-            color: tickColor,
-            callback: (value) => `${value}\u00b0`,
+            color: colors.tick,
+            callback: (value) => `${Number(value).toFixed(1)}\u00b0`,
           },
         },
       },
     };
 
     return { data: chartData, options: chartOptions };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [history, timeScale, theme]);
 
   return <Line data={data} options={options} />;

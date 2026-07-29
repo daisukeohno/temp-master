@@ -21,11 +21,6 @@
   --warning: #f0ad4e;
   --warning-bg: #fcf8e3;
   --warning-text: #8a6d3b;
-  --chart-line: #d9534f;
-  --chart-fill: rgba(217, 83, 79, 0.15);
-  --chart-grid: rgba(0, 0, 0, 0.05);
-  --chart-tick: #777777;
-  --chart-point-hover: #5bc0de;
 }
 
 [data-theme="dark"] {
@@ -45,11 +40,6 @@
   --warning: #e0a94a;
   --warning-bg: #33301f;
   --warning-text: #f0d290;
-  --chart-line: #ff7b76;
-  --chart-fill: rgba(255, 123, 118, 0.2);
-  --chart-grid: rgba(255, 255, 255, 0.08);
-  --chart-tick: #9aa4b2;
-  --chart-point-hover: #4fd0e3;
 }
 
 [data-theme="solarized"] {
@@ -69,11 +59,6 @@
   --warning: #b58900;
   --warning-bg: #f7efd4;
   --warning-text: #93710a;
-  --chart-line: #cb4b16;
-  --chart-fill: rgba(203, 75, 22, 0.18);
-  --chart-grid: rgba(101, 123, 131, 0.18);
-  --chart-tick: #657b83;
-  --chart-point-hover: #2aa198;
 }
 
 [data-theme="ocean"] {
@@ -93,9 +78,4 @@
   --warning: #ffcb6b;
   --warning-bg: #123145;
   --warning-text: #ffdf9e;
-  --chart-line: #37d3a0;
-  --chart-fill: rgba(55, 211, 160, 0.2);
-  --chart-grid: rgba(143, 179, 196, 0.15);
-  --chart-tick: #8fb3c4;
-  --chart-point-hover: #56ccf2;
 }

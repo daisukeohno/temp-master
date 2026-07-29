@@ -46,10 +46,3 @@ export function useTheme(): ThemeContextValue {
   }
   return ctx;
 }
-
-/** Read a CSS custom property from the document root for the active theme. */
-export function readThemeVar(name: string): string {
-  return getComputedStyle(document.documentElement)
-    .getPropertyValue(name)
-    .trim();
-}
