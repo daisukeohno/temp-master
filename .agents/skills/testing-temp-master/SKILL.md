@@ -1,13 +1,13 @@
 ---
 name: testing-temp-master
-description: Test the Temp Master SwitchBot dashboard locally. Use when verifying UI changes, API connectivity, or branding updates.
+description: Test the Temp Master SwitchBot dashboard locally. Use when verifying UI changes, API connectivity, theme/chart behavior, or branding updates.
 ---
 
 # Testing Temp Master Dashboard
 
 ## Prerequisites
 
-- Python 3.12+
+- Python 3.12+ (the project pins `^3.12`; poetry refuses to run on 3.10)
 - Poetry (dependency management)
 - SwitchBot API credentials
 
@@ -15,6 +15,10 @@ description: Test the Temp Master SwitchBot dashboard locally. Use when verifyin
 
 - `SWITCHBOT_TOKEN` - SwitchBot API token
 - `SWITCHBOT_SECRET` - SwitchBot API secret
+
+Without these the backend returns `configured: false` and **zero meters**, so the meter grid,
+charts, Time Range selector and stale-meters section cannot be exercised at all. Request them
+before planning UI tests.
 
 ## Local Development Setup
 
@@ -25,6 +29,15 @@ cd switchbot-dashboard/switchbot-backend
 poetry install --no-interaction
 ```
 
+If the box only has Python 3.10, `poetry run` fails with
+"Current Python version (3.10.x) is not allowed by the project (^3.12)". Workaround:
+
+```bash
+uv venv --python 3.12 /tmp/venv312
+uv pip install --python /tmp/venv312/bin/python fastapi aiosqlite python-dotenv httpx uvicorn
+/tmp/venv312/bin/python -m uvicorn app.main:app --port 8000   # run from switchbot-backend/
+```
+
 ### 2. Create .env file
 
 ```bash
@@ -33,59 +46,86 @@ echo "SWITCHBOT_TOKEN=${SWITCHBOT_TOKEN}" > .env
 echo "SWITCHBOT_SECRET=${SWITCHBOT_SECRET}" >> .env
 ```
 
-### 3. Symlink frontend static files
+`DB_PATH` env var overrides the SQLite location (defaults to `/data/app.db` if `/data` exists,
+else `./app.db`) — handy for a throwaway DB during testing.
 
-The Dockerfile builds the frontend and copies `switchbot-frontend/dist/` to `switchbot-backend/static/`, but locally this directory doesn't exist. Build the frontend first, then symlink the build output:
+### 3. Frontend
+
+For frontend development/testing prefer `npm run dev` in `switchbot-dashboard/switchbot-frontend`
+(port 5173), which proxies `/api` to `http://localhost:8000`. No static symlink needed in this mode.
+
+To test the production-served path instead, build and symlink:
 
 ```bash
 (cd switchbot-dashboard/switchbot-frontend && npm ci && npm run build)
 ln -s $(pwd)/switchbot-dashboard/switchbot-frontend/dist switchbot-dashboard/switchbot-backend/static
 ```
 
-For frontend development, prefer `npm run dev` (port 5173), which proxies `/api` to `http://localhost:8000`.
+**Important:** `STATIC_DIR` is resolved at module import time, so create the symlink *before*
+starting the server.
 
-**Important:** The static directory check in `main.py` happens at module import time (`STATIC_DIR = Path(__file__).resolve().parent.parent / "static"`). If you create the symlink after starting the server, you must restart the server.
+### 4. Fallback when credentials are unavailable
 
-### 4. Start the server
+If SwitchBot credentials cannot be obtained, you can still exercise the real FastAPI app by
+stubbing only the SwitchBot HTTP layer. Write a throwaway runner (do NOT commit it) that:
 
-```bash
-cd switchbot-dashboard/switchbot-backend
-poetry run fastapi run app/main.py --host 0.0.0.0 --port 8000
-```
+1. sets `SWITCHBOT_TOKEN` / `SWITCHBOT_SECRET` / `DB_PATH` env vars **before** importing `app.main`
+   (they are read at module import time),
+2. seeds devices/readings via `main.init_database()`, `main.save_device_to_db()`,
+   `main.save_reading_to_db()` — include one device with `last_updated` older than 7 days to
+   populate the 未更新のメーター section,
+3. replaces `main.fetch_devices` / `main.fetch_device_status` with async fakes
+   (`collect_data` looks them up as module globals, so this also makes the Refresh Data button work;
+   return `{}` with no `temperature` for the stale device so it stays stale),
+4. runs `uvicorn.run(main.app, port=8000)`.
 
-The frontend is served at `http://localhost:8000/` and the API docs at `http://localhost:8000/docs`.
+Label such results clearly in the report as not verified against real devices.
 
 ## Key Test Points
 
 ### Branding Verification
-- Page title (`<title>` tag): should say "Temp Master Dashboard"
-- Navbar brand: should say "Temp Master Dashboard"
-- Footer: should say "Temp Master Dashboard v1.0 - Built with React + Vite"
-- Verify no "Snake" or "SnakeRoom" text exists anywhere: `document.body.innerHTML.includes('Snake')` should be `false`
+- Page title (`<title>` tag): "Temp Master Dashboard"
+- Navbar brand: "Temp Master Dashboard"
+- Footer: "Temp Master Dashboard v1.0 - Built with React + Vite"
+- No "Snake"/"SnakeRoom" text anywhere
 
 ### API Connectivity
 - `GET /api/status` returns `configured: true` and `meters_count` > 0
 - `GET /api/meters` returns live meter data with temperature, humidity, battery
-- Connection status badge shows "Connected" (green, class `label-success`)
+- Navbar badge shows green `Connected`
 
-### UI Functionality
-- Theme selector: Light / Dark / Ocean, persisted in `localStorage`
-- Time Range selector: Last Hour / Last 24 Hours / Last 7 Days / Last 30 Days / Last Year
-- Charts: SVG line charts rendered with Recharts
-- Refresh Data button triggers data reload
+### UI Functionality (React SPA)
+- Theme selector (navbar, `#theme-select`): Light / Dark / Ocean, persisted in `localStorage`
+  key `temp-master-theme`.
+- Time Range selector (`#time-scale-select`): Last Hour / 24 Hours / 7 Days / 30 Days / Year.
+  X-axis label format is the strongest signal that a re-fetch happened:
+  `HH:MM` (hour/day), `Mon 10` (week), `Jul 20` (month/year) — see `src/lib/format.ts`.
+- Charts: Recharts SVG line charts; stale meters render no chart, only
+  「履歴データの取得対象外」.
+- Refresh Data button shows `Refreshing...` and becomes `disabled` while the POST is in flight —
+  add an artificial delay in the stub (~0.4 s per device) to capture that state.
 
-## Running Backend Tests
+### Known issue to watch: chart colors lag one theme change behind
+`useThemeColor` in `src/theme/ThemeProvider.tsx` reads CSS custom properties in a child
+`useEffect`, while `data-theme` is set in the parent `ThemeProvider` effect. React flushes child
+effects first, so chart line/axis/grid colors may show the *previous* theme's color until a
+reload. When testing themes, always compare the chart line color against a Tailwind-driven
+element (e.g. the Refresh Data button) in the same screenshot — they should match. Possible fixes:
+use `useLayoutEffect` for the `data-theme` write, or derive chart colors from a color map keyed by
+theme name instead of reading computed styles.
+
+## Running Tests
 
 ```bash
-cd switchbot-dashboard/switchbot-backend
-poetry run pytest -v
+cd switchbot-dashboard/switchbot-backend && poetry run pytest -v   # expect 97 passing
+cd switchbot-dashboard/switchbot-frontend && npm test              # vitest
 ```
-
-Expected: 97 tests pass.
 
 ## Architecture Notes
 
 - Backend: FastAPI + aiosqlite (SQLite persistence at `/data/app.db` or local `app.db`)
-- Frontend: React 18 + TypeScript + Vite + Tailwind + Recharts (`switchbot-frontend/`)
+- Frontend: React 18 + TypeScript + Vite + Tailwind + Recharts + TanStack Query
+  (`switchbot-frontend/`), queries auto-refetch every 30 s
 - Deployment: Fly.io (see `fly.toml`)
-- Background data collection runs with 120s interval, with rate limiting and exponential backoff
+- Background data collection interval is 3600 s; override `main.DATA_COLLECTION_INTERVAL` in a
+  test harness to avoid surprise refreshes mid-test

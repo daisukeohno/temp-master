@@ -17,17 +17,31 @@ function getInitialTheme(): ThemeName {
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
+/**
+ * Applied synchronously (not in an effect) so that components reading the
+ * resulting CSS variables see the new palette on the same render.
+ */
+function applyTheme(theme: ThemeName): void {
+  const root = document.documentElement;
+  root.setAttribute('data-theme', theme);
+  root.classList.toggle('dark', theme === 'dark');
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeName>(getInitialTheme);
+  const [theme, setThemeState] = useState<ThemeName>(() => {
+    const initial = getInitialTheme();
+    applyTheme(initial);
+    return initial;
+  });
 
   useEffect(() => {
-    const root = document.documentElement;
-    root.setAttribute('data-theme', theme);
-    root.classList.toggle('dark', theme === 'dark');
     window.localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);
 
-  const setTheme = useCallback((next: ThemeName) => setThemeState(next), []);
+  const setTheme = useCallback((next: ThemeName) => {
+    applyTheme(next);
+    setThemeState(next);
+  }, []);
   const value = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
