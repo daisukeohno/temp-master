@@ -7,16 +7,20 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-fastapi = {extras = ["standard"], version = "0.127.0"}
+fastapi = {extras = ["standard"], version = "^0.139.2"}
 psycopg = {extras = ["binary"], version = "^3.3.2"}
 httpx = "^0.28.1"
-python-dotenv = "^1.2.1"
+python-dotenv = "^1.2.2"
 aiosqlite = "^0.22.1"
+# サプライチェーン安全性のため、公開から7日未満のバージョンは一時的に除外している
+annotated-doc = "<0.0.5"
+annotated-types = "<0.8.0"
+fastapi-cloud-cli = "<0.23.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.0.0"
-pytest-asyncio = "^0.24.0"
-pytest-cov = "^6.0.0"
+pytest = "^9.0.3"
+pytest-asyncio = "^1.4.0"
+pytest-cov = "^7.1.0"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
