@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 os.environ["SWITCHBOT_TOKEN"] = ""
 os.environ["SWITCHBOT_SECRET"] = ""
 
+import app.main as main_module
 from app.main import (
     DB_PATH,
     DataStore,
@@ -20,6 +21,8 @@ from app.main import (
     data_store,
     init_database,
 )
+
+TEST_API_TOKEN = "test-api-token"
 
 
 @pytest.fixture
@@ -149,6 +152,12 @@ def sample_switchbot_status_response() -> dict:
 @pytest.fixture
 def client(reset_data_store) -> TestClient:
     return TestClient(app)
+
+
+@pytest.fixture
+def api_token_headers():
+    with patch.object(main_module, "API_TOKEN", TEST_API_TOKEN):
+        yield {"Authorization": f"Bearer {TEST_API_TOKEN}"}
 
 
 @pytest.fixture

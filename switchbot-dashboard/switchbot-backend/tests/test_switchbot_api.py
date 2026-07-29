@@ -132,6 +132,7 @@ class TestCallSwitchbotApi:
                 await call_switchbot_api("/devices")
             
             assert exc_info.value.status_code == 500
+            assert "Internal Server Error" not in exc_info.value.detail
 
     async def test_call_api_request_error(self, reset_data_store):
         with patch.object(main_module, "SWITCHBOT_TOKEN", "test-token"), \
@@ -145,7 +146,7 @@ class TestCallSwitchbotApi:
                 await call_switchbot_api("/devices")
             
             assert exc_info.value.status_code == 500
-            assert "Request error" in exc_info.value.detail
+            assert "Connection failed" not in exc_info.value.detail
 
     async def test_call_api_no_credentials(self, reset_data_store):
         with patch.object(main_module, "SWITCHBOT_TOKEN", ""), \

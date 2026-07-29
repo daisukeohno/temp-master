@@ -34,6 +34,11 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
    - Tap App Version 10 times to enable Developer Options
    - Go to Developer Options > Get Token
 
+   Also set `API_TOKEN` (see [Authentication](#authentication)):
+   ```bash
+   echo "API_TOKEN=$(openssl rand -hex 32)" >> .env
+   ```
+
 4. Start the development server:
    ```bash
    poetry run fastapi dev app/main.py
@@ -69,6 +74,39 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
 - `GET /api/meters/{device_id}/history` - Returns temperature history with time_scale parameter
 - `POST /api/meters/refresh` - Triggers immediate data collection
 - `GET /api/status` - Returns backend status and configuration
+- `POST /api/import` - Imports historical data (**requires authentication**)
+- `GET /api/backup` - Downloads the SQLite database file (**requires authentication**)
+
+## Authentication
+
+`GET /api/backup` and `POST /api/import` expose and mutate the whole database, so they are
+protected by a Bearer token read from the `API_TOKEN` environment variable.
+
+- If `API_TOKEN` is not set, both endpoints return `503` (fail closed).
+- Requests without a valid token return `401`.
+
+```bash
+curl -H "Authorization: Bearer $API_TOKEN" https://temp-master.fly.dev/api/backup -o backup.db
+```
+
+On Fly.io, set it as a secret:
+
+```bash
+flyctl secrets set API_TOKEN="$(openssl rand -hex 32)"
+```
+
+### CORS
+
+Browser origins allowed to call the API are configured with `ALLOWED_ORIGINS`
+(comma separated). Credentials are not allowed on cross-origin requests.
+
+## Database Backup
+
+`backup_database.sh` periodically downloads the database. It requires `API_TOKEN`:
+
+```bash
+API_TOKEN=your_api_token ./backup_database.sh --loop
+```
 
 ## Notes
 
