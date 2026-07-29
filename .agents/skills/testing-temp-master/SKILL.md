@@ -105,14 +105,23 @@ Label such results clearly in the report as not verified against real devices.
 - Refresh Data button shows `Refreshing...` and becomes `disabled` while the POST is in flight —
   add an artificial delay in the stub (~0.4 s per device) to capture that state.
 
-### Known issue to watch: chart colors lag one theme change behind
-`useThemeColor` in `src/theme/ThemeProvider.tsx` reads CSS custom properties in a child
-`useEffect`, while `data-theme` is set in the parent `ThemeProvider` effect. React flushes child
-effects first, so chart line/axis/grid colors may show the *previous* theme's color until a
-reload. When testing themes, always compare the chart line color against a Tailwind-driven
-element (e.g. the Refresh Data button) in the same screenshot — they should match. Possible fixes:
-use `useLayoutEffect` for the `data-theme` write, or derive chart colors from a color map keyed by
-theme name instead of reading computed styles.
+### Regression to watch: chart colors lagging one theme change behind
+Chart colors come from `useThemeColor` in `src/theme/ThemeProvider.tsx`, which reads CSS custom
+properties from `document.documentElement`. This regresses if the `data-theme` / `.dark` write
+ever moves back into a `useEffect`: React flushes child effects before parent effects, so
+`MeterChart` would read the *previous* theme's palette and the line/axis/grid colors would stay
+stale until a reload. `applyTheme()` must therefore be called **synchronously** (inside `setTheme`
+and in the `useState` initializer), not from an effect — only `localStorage` persistence belongs
+in the effect.
+
+How to test it reliably: switch themes with the selector (no reload) and compare the chart line
+color against a Tailwind-driven element with the same accent — the Refresh Data button — inside
+the *same* screenshot. They must match. Expected accents: light `#d9534f` (red),
+dark `#f59e0b` (orange), ocean `#0f8b8d` (teal). Reloading masks the bug, so never judge theme
+colors from a freshly loaded page alone.
+
+Note: `[vite] Could not Fast Refresh ("useTheme" export is incompatible)` is an expected dev-only
+HMR debug message (the module exports both a component and hooks), not a runtime error.
 
 ## Running Tests
 
