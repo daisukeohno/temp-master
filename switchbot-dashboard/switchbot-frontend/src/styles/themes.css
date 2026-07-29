@@ -1,0 +1,81 @@
+/* ============================================================
+   Theme definitions via CSS custom properties.
+   Applied through the `data-theme` attribute on <html>.
+   ============================================================ */
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f5f5f5;
+  --surface: #ffffff;
+  --surface-header: #f8f8f8;
+  --border: #e0e0e0;
+  --text: #212529;
+  --text-muted: #777777;
+  --accent: #0d6efd;
+  --accent-contrast: #ffffff;
+  --danger: #d9534f;
+  --danger-bg: rgba(217, 83, 79, 0.15);
+  --info: #5bc0de;
+  --success: #5cb85c;
+  --warning: #f0ad4e;
+  --warning-bg: #fcf8e3;
+  --warning-text: #8a6d3b;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #14181f;
+  --surface: #1e252f;
+  --surface-header: #262f3b;
+  --border: #333d4b;
+  --text: #e6eaf0;
+  --text-muted: #9aa4b2;
+  --accent: #4c8dff;
+  --accent-contrast: #0b0f14;
+  --danger: #ff6b66;
+  --danger-bg: rgba(255, 107, 102, 0.18);
+  --info: #4fd0e3;
+  --success: #4caf6d;
+  --warning: #e0a94a;
+  --warning-bg: #33301f;
+  --warning-text: #f0d290;
+}
+
+[data-theme="solarized"] {
+  color-scheme: light;
+  --bg: #fdf6e3;
+  --surface: #eee8d5;
+  --surface-header: #e6dfc6;
+  --border: #d8cfa8;
+  --text: #073642;
+  --text-muted: #657b83;
+  --accent: #268bd2;
+  --accent-contrast: #fdf6e3;
+  --danger: #dc322f;
+  --danger-bg: rgba(220, 50, 47, 0.15);
+  --info: #2aa198;
+  --success: #859900;
+  --warning: #b58900;
+  --warning-bg: #f7efd4;
+  --warning-text: #93710a;
+}
+
+[data-theme="ocean"] {
+  color-scheme: dark;
+  --bg: #0b1e2d;
+  --surface: #10293b;
+  --surface-header: #163449;
+  --border: #22485f;
+  --text: #e0f2f9;
+  --text-muted: #8fb3c4;
+  --accent: #21c0c9;
+  --accent-contrast: #041016;
+  --danger: #ff8360;
+  --danger-bg: rgba(255, 131, 96, 0.18);
+  --info: #56ccf2;
+  --success: #37d3a0;
+  --warning: #ffcb6b;
+  --warning-bg: #123145;
+  --warning-text: #ffdf9e;
+}
