@@ -1,0 +1,84 @@
+name: Load Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      rps:
+        description: Target requests per second
+        default: '50'
+      duration:
+        description: Duration of the load stage
+        default: '1m'
+  schedule:
+    - cron: '0 3 * * 1'
+
+jobs:
+  k6:
+    name: k6 Load Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Install dependencies
+        working-directory: switchbot-dashboard/switchbot-backend
+        run: poetry install --no-interaction
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          curl -sS https://dl.k6.io/key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/k6-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      - name: Start backend
+        working-directory: switchbot-dashboard/switchbot-backend
+        env:
+          DB_PATH: /tmp/loadtest.db
+        run: |
+          nohup poetry run fastapi run app/main.py --host 127.0.0.1 --port 8000 > /tmp/backend.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8000/healthz && break
+            sleep 1
+          done
+
+      - name: Seed synthetic data
+        working-directory: switchbot-dashboard/load-tests
+        run: k6 run -e BASE_URL=http://127.0.0.1:8000 -e DEVICES=10 -e READINGS=500 seed.js
+
+      - name: Smoke test
+        working-directory: switchbot-dashboard/load-tests
+        run: k6 run -e BASE_URL=http://127.0.0.1:8000 smoke.js
+
+      - name: Load test
+        working-directory: switchbot-dashboard/load-tests
+        run: |
+          k6 run \
+            -e BASE_URL=http://127.0.0.1:8000 \
+            -e RPS=${{ github.event.inputs.rps || '50' }} \
+            -e DURATION=${{ github.event.inputs.duration || '1m' }} \
+            --summary-export=summary.json \
+            load.js
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-summary
+          path: |
+            switchbot-dashboard/load-tests/summary.json
+            /tmp/backend.log
