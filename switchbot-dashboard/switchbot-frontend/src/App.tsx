@@ -33,7 +33,9 @@ export function App() {
     ? `Failed to fetch meters: ${metersQuery.error.message}`
     : statusQuery.isError
       ? `Failed to fetch status: ${statusQuery.error.message}`
-      : null
+      : refreshMutation.isError
+        ? `Failed to refresh: ${refreshMutation.error.message}`
+        : null
 
   return (
     <div className="app">
