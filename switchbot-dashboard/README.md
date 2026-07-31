@@ -4,8 +4,12 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
 
 ## Features
 
+- Vite + React 18 + TypeScript single-page dashboard (no CDN dependencies)
 - Temperature charts for all SwitchBot Meter devices using Recharts
-- Time scale switching (hour/day/month/year)
+- Time scale switching (hour/day/week/month/year)
+- Multiple themes (light / dark / high contrast) with CSS custom properties, persisted in
+  `localStorage` and defaulting to the OS `prefers-color-scheme`
+- Meters that have not reported for over 7 days are listed in a separate "未更新のメーター" section
 - Auto-refresh every 30 seconds (frontend) with background data collection every 2 minutes (backend)
 - Rate limiting protection with exponential backoff
 - All API calls are cached - GET endpoints never call SwitchBot API directly
@@ -51,17 +55,23 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
    npm install
    ```
 
-3. Copy `.env.example` to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
-
-4. Start the development server:
+3. Start the development server (proxies `/api` to `http://localhost:8000`):
    ```bash
    npm run dev
    ```
 
-5. Open http://localhost:5173 in your browser
+4. Open http://localhost:5173 in your browser
+
+Other scripts:
+
+```bash
+npm run lint    # TypeScript project build check + ESLint
+npm run build   # production build into dist/
+npm run preview # serve the production build locally
+```
+
+In production the frontend is served by the backend from the same origin, so all API calls
+use relative `/api/...` paths.
 
 ## API Endpoints
 
@@ -69,6 +79,7 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
 - `GET /api/meters/{device_id}/history` - Returns temperature history with time_scale parameter
 - `POST /api/meters/refresh` - Triggers immediate data collection
 - `GET /api/status` - Returns backend status and configuration
+- `GET /api/backup` - Downloads the SQLite database file
 
 ## Notes
 
@@ -76,3 +87,5 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
 - Backend data collection interval: 2 minutes minimum
 - Frontend refresh interval: 30 seconds
 - SwitchBot API has strict rate limits (~10000 requests/day)
+- The Docker image builds the frontend in a Node stage and copies `dist/` into the backend's
+  `static/` directory, which is served as a SPA (unknown paths fall back to `index.html`)
