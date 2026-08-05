@@ -82,7 +82,8 @@ export function TemperatureChart({ history, timeScale }: TemperatureChartProps) 
         ticks: {
           font: { size: 10 },
           color: colors.tick,
-          callback: (value) => `${value}\u00b0`,
+          callback: (value) =>
+            `${typeof value === 'number' ? Number(value.toFixed(1)) : value}\u00b0`,
         },
       },
     },

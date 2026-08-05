@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -43,8 +44,12 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeName>(readStoredTheme);
 
-  useEffect(() => {
+  // Layout effect so the attribute is set before child effects read CSS variables.
+  useLayoutEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEY, theme);
     } catch {
