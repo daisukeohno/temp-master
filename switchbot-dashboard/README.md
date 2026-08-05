@@ -4,8 +4,11 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
 
 ## Features
 
-- Temperature charts for all SwitchBot Meter devices using Recharts
-- Time scale switching (hour/day/month/year)
+- React 18 + TypeScript SPA (Vite, TanStack Query, Tailwind CSS, Chart.js v4)
+- Temperature charts for all SwitchBot Meter devices
+- Time scale switching (hour/day/week/month/year)
+- Theme switcher (Light / Dark / Industrial / High Contrast), persisted in `localStorage`
+- Stale meters (no update for 7+ days) shown in a separate section
 - Auto-refresh every 30 seconds (frontend) with background data collection every 2 minutes (backend)
 - Rate limiting protection with exponential backoff
 - All API calls are cached - GET endpoints never call SwitchBot API directly
@@ -51,17 +54,42 @@ A fullstack web dashboard to monitor temperature readings from SwitchBot Meter d
    npm install
    ```
 
-3. Copy `.env.example` to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
-
-4. Start the development server:
+3. Start the Vite dev server (proxies `/api` to the backend on port 8000):
    ```bash
    npm run dev
    ```
 
-5. Open http://localhost:5173 in your browser
+4. Open http://localhost:5173 in your browser
+
+   The proxy is configured in `vite.config.ts`, so the backend must be running on
+   http://localhost:8000. Symlinking the frontend into `switchbot-backend/static`
+   is no longer needed for development.
+
+5. Production build (outputs to `switchbot-frontend/dist/`):
+   ```bash
+   npm run build
+   ```
+
+6. Type check:
+   ```bash
+   npm run lint
+   ```
+
+### Frontend structure
+
+- `src/api/` - typed API client (`client.ts`, `types.ts`) and TanStack Query hooks (`queries.ts`)
+- `src/components/` - navbar, controls, status bar, meter panels, charts
+- `src/theme/` - theme provider (`data-theme` attribute + CSS variables) and chart color hook
+
+The legacy jQuery + Bootstrap 3 single-file implementation was removed; `index.html`
+is now the Vite entry HTML. See git history for the old implementation.
+
+### Deployment
+
+The `Dockerfile` is a multi-stage build: a Node stage runs `npm ci && npm run build`
+for `switchbot-frontend/`, and the Vite `dist/` output is copied into the backend image
+at `./static/`. The FastAPI catch-all route serves `static/index.html`, so SPA routing
+and hashed `assets/` files work without extra configuration.
 
 ## API Endpoints
 
